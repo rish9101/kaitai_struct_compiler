@@ -66,7 +66,7 @@ class ClassCompiler(
 
     if (config.readWrite) {
       compileWrite(curClass.seq, curClass.meta.endian)
-      compileCheck(curClass.seq)
+      // compileCheck(curClass.seq)
     }
 
     // Destructor

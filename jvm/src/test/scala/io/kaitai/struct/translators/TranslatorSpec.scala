@@ -647,9 +647,10 @@ class TranslatorSpec extends FunSuite {
   abstract class FakeTypeProvider extends TypeProvider {
     val nowClass = ClassSpec.opaquePlaceholder(List("top_class"))
 
-    override def resolveEnum(inType: Ast.typeId, enumName: String) =
+    override def resolveEnum(inType: Ast.typeId, enumName: String) = {
+      println("This one")
       throw new NotImplementedError
-
+    }
     override def resolveType(typeName: Ast.typeId): DataType = {
       if (typeName == Ast.typeId(false, List("block"), false)) {
         val name = List("top_class", "block")
@@ -659,6 +660,7 @@ class TranslatorSpec extends FunSuite {
         r.classSpec = Some(cs)
         return r
       } else {
+        println("It's this one")
         throw new NotImplementedError
       }
     }

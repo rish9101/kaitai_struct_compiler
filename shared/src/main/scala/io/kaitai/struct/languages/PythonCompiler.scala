@@ -16,6 +16,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     with SingleOutputFile
     with UniversalFooter
     with EveryReadIsExpression
+    with EveryWriteIsExpression
     with AllocateIOLocalVar
     with FixedContentsUsingArrayByteLiteral
     with UniversalDoc
@@ -131,6 +132,16 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.inc
     if (isEmpty)
       out.puts("pass")
+  }
+
+  override def writeHeader(endian: Option[FixedEndian]): Unit = {
+    val suffix = endian match {
+      case Some(e) => s"${e.toSuffix}"
+      case None => ""
+    }
+    out.puts
+    out.puts(s"def _write$suffix(self, io):")
+    out.inc
   }
 
   override def readFooter() = universalFooter
@@ -271,6 +282,79 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     }
   }
 
+  override def attrPrimitiveWrite(
+    io: String,
+    exprRaw: String,
+    dataType: DataType,
+    defEndian: Option[FixedEndian],
+    exprTypeOpt: Option[DataType] = None
+  ): Unit = {
+    val exprType = exprTypeOpt.getOrElse(dataType)
+    val expr = exprRaw
+
+    val stmt = dataType match {
+      case t: ReadableType =>
+        s"$io.write_${t.apiCall(defEndian)}(${expr})"
+      case BitsType1 =>
+        s"$io.writeBitsInt(1, ($expr) ? 1 : 0)"
+      case BitsType(width: Int) =>
+        s"$io.writeBitsInt($width, $expr)"
+      case _: BytesType =>
+        s"$io.write_bytes($expr)"
+    }
+    out.puts(stmt)
+  }
+
+  override def attrBytesLimitWrite(io: String, expr: String, size: String, term: Int, padRight: Int): Unit =
+    out.puts(s"$io.write_bytes_limit(self, $expr, $size, $term,$padRight)")
+
+  override def attrUserTypeInstreamWrite(io: String, exprRaw: String, dataType: DataType, exprType: DataType) = {
+    val expr = exprRaw
+    out.puts(s"$expr._write($io)")
+  }
+
+  override def attrWriteStreamToStream(srcIo: String, dstIo: String) =
+    out.puts(s"$dstIo.write_stream($srcIo);")
+
+  override def exprStreamToByteArray(io: String): String =
+    s"$io.to_byte_array()"
+
+  override def attrUnprocess(proc: ProcessExpr, varSrc: Identifier, varDest: Identifier): Unit = {
+    
+    val srcName = privateMemberName(varSrc)
+    val destName = privateMemberName(varDest)
+
+    proc match {
+      case ProcessXor(xorValue) =>
+        out.puts(s"$destName = $kstreamName.process_xor_one($srcName, ${expression(xorValue)});")
+ 
+      case ProcessRotate(isLeft, rotValue) =>
+        val expr = if (!isLeft) {
+          expression(rotValue)
+        } else {
+          s"8 - (${expression(rotValue)})"
+        }
+        out.puts(s"$destName = $kstreamName.process_rotate_left($srcName, $expr, 1);")
+      case ProcessCustom(name, args) =>
+        val namespace = name.init.mkString(".")
+        val procClass = namespace +
+          (if (namespace.nonEmpty) "." else "") +
+          type2class(name.last)
+        val procName = s"_process_${idToStr(varSrc)}"
+        out.puts(s"$procClass $procName = new $procClass(${args.map(expression).mkString(", ")});")
+        out.puts(s"$destName = $procName.encode($srcName);")
+    }
+
+
+  }
+
+  override def internalEnumIntType(basedOn: IntType): DataType = {
+      basedOn match {
+      case IntMultiType(signed, _, endian) => IntMultiType(signed, Width8, endian)
+      case _ => IntMultiType(true, Width8, None)
+    }  
+  }
+
   override def attrDebugEnd(attrId: Identifier, attrType: DataType, io: String, rep: RepeatSpec): Unit = {
     val name = attrId match {
       case _: RawIdentifier | _: SpecialIdentifier => return
@@ -351,6 +435,8 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     dataType match {
       case t: ReadableType =>
         s"$io.read_${t.apiCall(defEndian)}()"
+      case fbt: FixedBytesType =>
+        s"$io.read_bytes(${expression(Ast.expr.IntNum(fbt.contents.length))})"
       case blt: BytesLimitType =>
         s"$io.read_bytes(${expression(blt.size)})"
       case _: BytesEosType =>
