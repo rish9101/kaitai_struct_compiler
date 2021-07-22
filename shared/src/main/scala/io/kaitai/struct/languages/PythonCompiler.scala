@@ -45,7 +45,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
     importList.add("from pkg_resources import parse_version")
     importList.add("import kaitaistruct")
-    importList.add(s"from kaitaistruct import $kstructName, $kstreamName, BytesIO")
+    importList.add(s"from kaitaistruct import $kstructName, $kstreamName,  $kfieldName, BytesIO")
 
     out.puts
     out.puts
@@ -426,7 +426,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   }
 
   override def handleAssignmentSimple(id: Identifier, expr: String): Unit =
-    out.puts(s"${privateMemberName(id)} = $expr")
+    out.puts(s"${privateMemberName(id)}.value = $expr")
 
   override def handleAssignmentTempVar(dataType: DataType, id: String, expr: String): Unit =
     out.puts(s"$id = $expr")
@@ -591,6 +591,35 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     }
     s"$prefix${types2class(name)}"
   }
+
+
+  override def getTypeDataType(datatype: DataType): String = {
+    val native_type = datatype match {
+      case int_type: IntMultiType => {
+        int_type.width match {
+          case Width8 => "long"
+          case _ => "int"
+        }
+      }
+      case str_type: FloatMultiType => "float"
+      case b_tye: BytesType => "bytes"
+      case t: StrFromBytesType => "str"
+      case u_type: UserType => {
+        userType2class(u_type)
+      }
+      case enum: EnumType => {
+        types2class(enum.enumSpec.get.name)
+      }
+      case _ => ""
+    } 
+    native_type
+  }
+
+  override def defineReadStart(id: Identifier, datatype: DataType): Unit = {
+    val nativeType = getTypeDataType(datatype)
+    out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType, 'value')")
+  }
+
 }
 
 object PythonCompiler extends LanguageCompilerStatic
@@ -604,6 +633,7 @@ object PythonCompiler extends LanguageCompilerStatic
 
   override def kstreamName: String = "KaitaiStream"
   override def kstructName: String = "KaitaiStruct"
+  def kfieldName: String = "KaitaiField"
   override def ksErrorName(err: KSError): String = err match {
     case EndOfStreamError => "EOFError"
     case _ => s"kaitaistruct.${err.name}"

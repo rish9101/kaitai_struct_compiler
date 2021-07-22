@@ -345,7 +345,6 @@ class JavaMain(config: CLIConfig) {
       val parentPath = outPath.getParentFile
       parentPath.mkdirs
 
-      println(outPath)
       val fw = new FileWriter(outPath)
       fw.write(file.contents)
       fw.close()

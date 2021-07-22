@@ -196,4 +196,5 @@ abstract class BaseTranslator(val provider: TypeProvider)
   // for the language
   def anyField(value: Ast.expr, attrName: String): String =
     s"${translate(value)}.${doName(attrName)}"
+
 }
