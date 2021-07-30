@@ -595,14 +595,9 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def getTypeDataType(datatype: DataType): String = {
     val native_type = datatype match {
-      case int_type: IntMultiType => {
-        int_type.width match {
-          case Width8 => "long"
-          case _ => "int"
-        }
-      }
+      case int_type: IntType => "int"
       case str_type: FloatMultiType => "float"
-      case b_tye: BytesType => "bytes"
+      case b_type: BytesType => "bytes"
       case t: StrFromBytesType => "str"
       case u_type: UserType => {
         userType2class(u_type)
