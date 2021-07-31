@@ -84,7 +84,9 @@ case class YamlAttrArgs(
   contents: Option[Array[Byte]],
   enumRef: Option[String],
   parent: Option[Ast.expr],
-  process: Option[ProcessExpr]
+  process: Option[ProcessExpr],
+  maxValue: Option[Int],
+  minValue: Option[Int]
 ) {
   def getByteArrayType(path: List[String]) = {
     (size, sizeEos) match {
@@ -127,6 +129,11 @@ object AttrSpec {
     "pad-right",
     "parent",
     "process"
+  )
+
+  val LEGAL_KEYS_NUMERIC = Set(
+    "max_value",
+    "min_value"
   )
 
   val LEGAL_KEYS_STR = Set(
@@ -181,6 +188,9 @@ object AttrSpec {
     val enum = ParseUtils.getOptValueStr(srcMap, "enum", path)
     val parent = ParseUtils.getOptValueExpression(srcMap, "parent", path)
     val valid = srcMap.get("valid").map(ValidationSpec.fromYaml(_, path ++ List("valid")))
+    val maxValue = ParseUtils.getOptValueInt(srcMap, "max_value", path)
+    val minValue = ParseUtils.getOptValueInt(srcMap, "min_value", path)
+
 
     // Convert value of `contents` into validation spec and merge it in, if possible
     val valid2: Option[ValidationSpec] = (contents, valid) match {
@@ -198,7 +208,7 @@ object AttrSpec {
     val yamlAttrArgs = YamlAttrArgs(
       size, sizeEos,
       encoding, terminator, include, consume, eosError, padRight,
-      contents, enum, parent, process
+      contents, enum, parent, process, maxValue, minValue
     )
 
     // Unfortunately, this monstrous match can't rewritten in simpler way due to Java type erasure
@@ -224,6 +234,7 @@ object AttrSpec {
     val (repeatSpec, legalRepeatKeys) = RepeatSpec.fromYaml(srcMap, path)
 
     val legalKeys = LEGAL_KEYS ++ legalRepeatKeys ++ (dataType match {
+      case _: NumericType => LEGAL_KEYS_NUMERIC
       case _: BytesType => LEGAL_KEYS_BYTES
       case _: StrFromBytesType => LEGAL_KEYS_STR
       case _: UserType => LEGAL_KEYS_BYTES

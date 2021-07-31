@@ -110,7 +110,7 @@ trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguag
         val expr = writeExprAsString(idToWrite, rep, isRaw)
         attrPrimitiveWrite(io, expr, t, None)
         if (t.terminator.isDefined && !t.include)
-          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false), None)
+          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false, None), None)
       case blt: BytesLimitType =>
         val expr = writeExprAsString(idToWrite, rep, isRaw)
         attrBytesLimitWrite2(io, expr, blt)
@@ -118,7 +118,7 @@ trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguag
         val expr = writeExprAsString(idToWrite, rep, isRaw)
         attrPrimitiveWrite(io, expr, t, None)
         if (t.consume && !t.include)
-          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false), None)
+          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false, None), None)
     }
   }
 
@@ -129,16 +129,16 @@ trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguag
     t.bytes match {
       case t: BytesEosType =>
         if (t.terminator.isDefined && !t.include)
-          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false), None)
+          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false, None), None)
       case t: BytesLimitType =>
         // FIXME: implement padding and terminator byte
         t.terminator.foreach((terminator) =>
           if (!t.include)
-            attrPrimitiveWrite(io, terminator.toString, Int1Type(false), None)
+            attrPrimitiveWrite(io, terminator.toString, Int1Type(false, None), None)
         )
       case t: BytesTerminatedType =>
         if (t.consume && !t.include)
-          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false), None)
+          attrPrimitiveWrite(io, t.terminator.toString, Int1Type(false, None), None)
     }
   }
 

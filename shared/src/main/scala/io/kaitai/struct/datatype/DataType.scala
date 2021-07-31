@@ -36,10 +36,16 @@ object DataType {
 
   abstract sealed class IntType extends NumericType
   case object CalcIntType extends IntType
-  case class Int1Type(signed: Boolean) extends IntType with ReadableType {
+  case class Int1Type(signed: Boolean, maxValue: Option[Int]) extends IntType with ReadableType {
+    
+    var minValue:Option[Int] = None 
     override def apiCall(defEndian: Option[FixedEndian]): String = if (signed) "s1" else "u1"
+
+
   }
-  case class IntMultiType(signed: Boolean, width: IntWidth, endian: Option[FixedEndian]) extends IntType with ReadableType {
+  case class IntMultiType(signed: Boolean, width: IntWidth, endian: Option[FixedEndian], maxValue: Option[Int]) extends IntType with ReadableType {
+    
+    var minValue:Option[Int] = None
     override def apiCall(defEndian: Option[FixedEndian]): String = {
       val ch1 = if (signed) 's' else 'u'
       val finalEnd = endian.orElse(defEndian)
@@ -51,7 +57,8 @@ object DataType {
 
   abstract class FloatType extends NumericType
   case object CalcFloatType extends FloatType
-  case class FloatMultiType(width: IntWidth, endian: Option[FixedEndian]) extends FloatType with ReadableType {
+  case class FloatMultiType(width: IntWidth, endian: Option[FixedEndian], maxValue: Option[Int]) extends FloatType with ReadableType {
+    var minValue:Option[Int] = None
     override def apiCall(defEndian: Option[FixedEndian]): String = {
       val finalEnd = endian.orElse(defEndian)
       s"f${width.width}${finalEnd.map(_.toSuffix).getOrElse("")}"
@@ -308,8 +315,8 @@ object DataType {
           case _ => arg.getByteArrayType(path)
         }
       case Some(dt) => dt match {
-        case "u1" => Int1Type(false)
-        case "s1" => Int1Type(true)
+        case "u1" => Int1Type(false, arg.maxValue)
+        case "s1" => Int1Type(true, arg.maxValue)
         case ReIntType(signStr, widthStr, endianStr) =>
           IntMultiType(
             signStr match {
@@ -321,7 +328,8 @@ object DataType {
               case "4" => Width4
               case "8" => Width8
             },
-            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path)
+            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path),
+            arg.maxValue
           )
         case ReFloatType(widthStr, endianStr) =>
           FloatMultiType(
@@ -329,7 +337,8 @@ object DataType {
               case "4" => Width4
               case "8" => Width8
             },
-            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path)
+            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path),
+            arg.maxValue
           )
         case ReBitType(widthStr) =>
           (arg.enumRef, widthStr.toInt) match {
@@ -369,7 +378,23 @@ object DataType {
       }
     }
 
-    applyEnumType(r, arg.enumRef, path)
+    val b = r match {
+      case inttype: Int1Type => {
+        inttype.minValue = arg.minValue
+        inttype
+      }
+      case inttype: IntMultiType => {
+        inttype.minValue = arg.minValue
+        inttype
+      }
+      case floattype: FloatMultiType => {
+        floattype.minValue = arg.minValue
+        floattype
+      }
+      case _ => r
+    }
+
+    applyEnumType(b, arg.enumRef, path)
   }
 
   private def applyEnumType(r: DataType, enumRef: Option[String], path: List[String]) = {
@@ -398,8 +423,8 @@ object DataType {
 
   def pureFromString(dt: String): DataType = dt match {
     case "bytes" => CalcBytesType
-    case "u1" => Int1Type(false)
-    case "s1" => Int1Type(true)
+    case "u1" => Int1Type(false, None)
+    case "s1" => Int1Type(true, None)
     case RePureIntType(signStr, widthStr) =>
       IntMultiType(
         signStr match {
@@ -411,6 +436,7 @@ object DataType {
           case "4" => Width4
           case "8" => Width8
         },
+        None,
         None
       )
     case RePureFloatType(widthStr) =>
@@ -419,6 +445,7 @@ object DataType {
           case "4" => Width4
           case "8" => Width8
         },
+        None,
         None
       )
     case ReBitType(widthStr) =>

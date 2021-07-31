@@ -56,7 +56,6 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
   override def doEnumByLabel(enumTypeAbs: List[String], label: String): String =
     s"${PythonCompiler.types2class(enumTypeAbs)}.$label"
   override def doEnumById(enumTypeAbs: List[String], id: String): String = {
-    println(enumTypeAbs)
     s"${PythonCompiler.kstreamName}.resolve_enum(${PythonCompiler.types2class(enumTypeAbs)}, $id)"
   }
   override def booleanOp(op: Ast.boolop) = op match {

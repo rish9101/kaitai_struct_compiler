@@ -789,8 +789,8 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def internalEnumIntType(basedOn: IntType): DataType = {
     basedOn match {
-      case IntMultiType(signed, _, endian) => IntMultiType(signed, Width8, endian)
-      case _ => IntMultiType(true, Width8, None)
+      case IntMultiType(signed, _, endian,_ ) => IntMultiType(signed, Width8, endian, None)
+      case _ => IntMultiType(true, Width8, None, None)
     }
   }
 
@@ -929,18 +929,18 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     */
   def kaitaiType2JavaTypePrim(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false) => "int"
-      case IntMultiType(false, Width2, _) => "int"
-      case IntMultiType(false, Width4, _) => "long"
-      case IntMultiType(false, Width8, _) => "long"
+      case Int1Type(false, _) => "int"
+      case IntMultiType(false, Width2, _, _) => "int"
+      case IntMultiType(false, Width4, _, _) => "long"
+      case IntMultiType(false, Width8, _, _) => "long"
 
-      case Int1Type(true) => "byte"
-      case IntMultiType(true, Width2, _) => "short"
-      case IntMultiType(true, Width4, _) => "int"
-      case IntMultiType(true, Width8, _) => "long"
+      case Int1Type(true, _) => "byte"
+      case IntMultiType(true, Width2, _, _) => "short"
+      case IntMultiType(true, Width4, _, _) => "int"
+      case IntMultiType(true, Width8, _, _) => "long"
 
-      case FloatMultiType(Width4, _) => "float"
-      case FloatMultiType(Width8, _) => "double"
+      case FloatMultiType(Width4, _, _) => "float"
+      case FloatMultiType(Width8, _, _) => "double"
 
       case BitsType(_) => "long"
 
@@ -973,18 +973,18 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     */
   def kaitaiType2JavaTypeBoxed(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false) => "Integer"
-      case IntMultiType(false, Width2, _) => "Integer"
-      case IntMultiType(false, Width4, _) => "Long"
-      case IntMultiType(false, Width8, _) => "Long"
+      case Int1Type(false, _) => "Integer"
+      case IntMultiType(false, Width2, _, _) => "Integer"
+      case IntMultiType(false, Width4, _, _) => "Long"
+      case IntMultiType(false, Width8, _, _) => "Long"
 
-      case Int1Type(true) => "Byte"
-      case IntMultiType(true, Width2, _) => "Short"
-      case IntMultiType(true, Width4, _) => "Integer"
-      case IntMultiType(true, Width8, _) => "Long"
+      case Int1Type(true, _) => "Byte"
+      case IntMultiType(true, Width2, _, _) => "Short"
+      case IntMultiType(true, Width4, _, _) => "Integer"
+      case IntMultiType(true, Width8, _, _) => "Long"
 
-      case FloatMultiType(Width4, _) => "Float"
-      case FloatMultiType(Width8, _) => "Double"
+      case FloatMultiType(Width4, _, _) => "Float"
+      case FloatMultiType(Width8, _, _) => "Double"
 
       case BitsType(_) => "Long"
 

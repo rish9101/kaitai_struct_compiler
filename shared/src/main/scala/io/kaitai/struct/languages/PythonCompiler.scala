@@ -350,8 +350,8 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def internalEnumIntType(basedOn: IntType): DataType = {
       basedOn match {
-      case IntMultiType(signed, _, endian) => IntMultiType(signed, Width8, endian)
-      case _ => IntMultiType(true, Width8, None)
+      case IntMultiType(signed, _, endian, _) => IntMultiType(signed, Width8, endian, None)
+      case _ => IntMultiType(true, Width8, None, None)
     }  
   }
 
@@ -612,6 +612,19 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def defineReadStart(id: Identifier, datatype: DataType): Unit = {
     val nativeType = getTypeDataType(datatype)
+
+    datatype match {
+      
+      case inttype : Int1Type=>
+        out.puts(
+          s"${privateMemberName(id)} = IntKaitaiField(${translator.doBoolLiteral(inttype.signed)}, ${inttype.maxValue.getOrElse("None")}, ${inttype.minValue.getOrElse("None")}, 8)"
+          )
+      case inttype : IntMultiType=> 
+        out.puts(s"${privateMemberName(id)} = IntKaitaiField(${translator.doBoolLiteral(inttype.signed)}, ${inttype.maxValue.getOrElse("None")}, ${inttype.minValue.getOrElse("None")}, ${8*inttype.width.width})")
+      case floattype : FloatMultiType=> 
+        out.puts(s"${privateMemberName(id)} = FloatKaitaiField(${floattype.maxValue.getOrElse("None")})")
+      
+    } 
     out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType, 'value')")
   }
 

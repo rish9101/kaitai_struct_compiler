@@ -600,18 +600,18 @@ object CSharpCompiler extends LanguageCompilerStatic
     */
   def kaitaiType2NativeType(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false) => "byte"
-      case IntMultiType(false, Width2, _) => "ushort"
-      case IntMultiType(false, Width4, _) => "uint"
-      case IntMultiType(false, Width8, _) => "ulong"
+      case Int1Type(false, _) => "byte"
+      case IntMultiType(false, Width2, _, _) => "ushort"
+      case IntMultiType(false, Width4, _, _) => "uint"
+      case IntMultiType(false, Width8, _, _) => "ulong"
 
-      case Int1Type(true) => "sbyte"
-      case IntMultiType(true, Width2, _) => "short"
-      case IntMultiType(true, Width4, _) => "int"
-      case IntMultiType(true, Width8, _) => "long"
+      case Int1Type(true, _) => "sbyte"
+      case IntMultiType(true, Width2, _, _) => "short"
+      case IntMultiType(true, Width4, _, _) => "int"
+      case IntMultiType(true, Width8, _, _) => "long"
 
-      case FloatMultiType(Width4, _) => "float"
-      case FloatMultiType(Width8, _) => "double"
+      case FloatMultiType(Width4, _, _) => "float"
+      case FloatMultiType(Width8, _, _) => "double"
 
       case BitsType(_) => "ulong"
 

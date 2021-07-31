@@ -130,11 +130,11 @@ class ConstructClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extend
   def typeToStr(dataType: DataType): String = dataType match {
     case fbt: FixedBytesType =>
       s"Const(${translator.doByteArrayLiteral(fbt.contents)})"
-    case Int1Type(signed) =>
+    case Int1Type(signed, _) =>
       s"Int8${signToStr(signed)}b"
-    case IntMultiType(signed, width, endianOpt) =>
+    case IntMultiType(signed, width, endianOpt, _) =>
       s"Int${width.width * 8}${signToStr(signed)}${fixedEndianToStr(endianOpt.get)}"
-    case FloatMultiType(width, endianOpt) =>
+    case FloatMultiType(width, endianOpt, _) =>
       s"Float${width.width * 8}${fixedEndianToStr(endianOpt.get)}"
     case BytesEosType(terminator, include, padRight, process) =>
       "GreedyBytes"

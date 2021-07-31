@@ -25,7 +25,7 @@ trait CommonArraysAndCast[T] extends TypeDetector {
   def doGuessArrayLiteral(values: Seq[Ast.expr]): T = {
     val elementType = detectArrayType(values)
     elementType match {
-      case Int1Type(_) =>
+      case Int1Type(_, _) =>
         val literalBytes: Seq[Byte] = values.map {
           case Ast.expr.IntNum(x) =>
             if (x < 0 || x > 0xff) {
