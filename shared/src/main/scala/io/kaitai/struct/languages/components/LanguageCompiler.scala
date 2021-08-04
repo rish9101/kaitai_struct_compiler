@@ -99,6 +99,10 @@ abstract class LanguageCompiler(
   def attrWrite(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian]): Unit = ???
   def runWriteCalc(): Unit = ???
 
+  def initHeader(): Unit = ???
+  def attrInit(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian]): Unit = ???
+  def initFooter(): Unit = ???
+
   def checkHeader(): Unit = ???
   def checkFooter(): Unit = ???
   def attrCheck(attr: AttrLikeSpec, id: Identifier): Unit = ???

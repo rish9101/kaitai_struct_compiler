@@ -150,6 +150,14 @@ object ParseUtils {
   def getListStr(src: Map[String, Any], field: String, path: List[String]): List[String] =
     getList[String](src, field, asStr, path)
 
+   def getOptListStr(src: Map[String, Any], field: String, path: List[String]): Option[List[String]] = {
+    src.get(field) match {
+      case Some(x) => Some(getList[String](src, field, asStr, path))
+      case None => None
+    }
+    
+   }
+
   def asStr(src: Any, path: List[String]): String = {
     src match {
       case str: String =>

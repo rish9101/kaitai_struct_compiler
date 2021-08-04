@@ -60,6 +60,8 @@ class ClassCompiler(
 
     // Constructor
     compileConstructor(curClass)
+    
+    compileSeqAttr(curClass.seq)
 
     // Read method(s)
     compileEagerRead(curClass.seq, curClass.meta.endian)
@@ -222,6 +224,13 @@ class ClassCompiler(
     * @param seq list of sequence attributes
     * @param endian endianness setting
     */
+  
+  def compileSeqAttr(seq: List[AttrSpec]): Unit = {
+    lang.initHeader()
+    compileSeqInitProc(seq, None)
+    lang.initFooter()
+  }
+
   def compileEagerRead(seq: List[AttrSpec], endian: Option[Endianness]): Unit = {
     endian match {
       case None | Some(_: FixedEndian) =>
@@ -297,6 +306,10 @@ class ClassCompiler(
     lang.writeFooter()
   }
 
+  def compileSeqInitProc(seq: List[AttrSpec], defEndian: Option[FixedEndian]) = {
+    compileSeqInit(seq, defEndian)
+  }
+
   /**
     * Compiles seq reading method body (only reading statements).
     * @param seq sequence of attributes
@@ -322,6 +335,13 @@ class ClassCompiler(
         lang.alignToByte(lang.normalIO)
       lang.attrWrite(attr, attr.id, defEndian)
       wasUnaligned = nowUnaligned
+    }
+  }
+
+  def compileSeqInit(seq: List[AttrSpec], defEndian: Option[FixedEndian]) = {
+    var wasUnaligned = false
+    seq.foreach { (attr) =>
+      lang.attrInit(attr, attr.id, defEndian)
     }
   }
 

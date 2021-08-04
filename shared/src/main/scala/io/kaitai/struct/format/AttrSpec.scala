@@ -86,7 +86,8 @@ case class YamlAttrArgs(
   parent: Option[Ast.expr],
   process: Option[ProcessExpr],
   maxValue: Option[Int],
-  minValue: Option[Int]
+  minValue: Option[Int],
+  strChoices: Option[List[String]]
 ) {
   def getByteArrayType(path: List[String]) = {
     (size, sizeEos) match {
@@ -128,7 +129,8 @@ object AttrSpec {
     "size-eos",
     "pad-right",
     "parent",
-    "process"
+    "process",
+    "choices"
   )
 
   val LEGAL_KEYS_NUMERIC = Set(
@@ -140,7 +142,8 @@ object AttrSpec {
     "size",
     "size-eos",
     "pad-right",
-    "encoding"
+    "encoding",
+    "choices"
   )
 
   val LEGAL_KEYS_ENUM = Set(
@@ -190,6 +193,7 @@ object AttrSpec {
     val valid = srcMap.get("valid").map(ValidationSpec.fromYaml(_, path ++ List("valid")))
     val maxValue = ParseUtils.getOptValueInt(srcMap, "max_value", path)
     val minValue = ParseUtils.getOptValueInt(srcMap, "min_value", path)
+    val strChoices = ParseUtils.getOptListStr(srcMap, "choices", path)
 
 
     // Convert value of `contents` into validation spec and merge it in, if possible
@@ -208,7 +212,7 @@ object AttrSpec {
     val yamlAttrArgs = YamlAttrArgs(
       size, sizeEos,
       encoding, terminator, include, consume, eosError, padRight,
-      contents, enum, parent, process, maxValue, minValue
+      contents, enum, parent, process, maxValue, minValue, strChoices
     )
 
     // Unfortunately, this monstrous match can't rewritten in simpler way due to Java type erasure

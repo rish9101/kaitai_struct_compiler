@@ -39,6 +39,9 @@ class StringLanguageOutputWriter(indentStr: String) extends LanguageOutputWriter
     sb.append(s)
     sb.append("\n")
   }
+  def put(s: String): Unit = {
+    sb.append(s)
+  }
   override def puts: Unit = sb.append("\n")
   override def close = {}
 

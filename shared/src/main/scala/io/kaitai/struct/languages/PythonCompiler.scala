@@ -17,6 +17,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     with UniversalFooter
     with EveryReadIsExpression
     with EveryWriteIsExpression
+    with EveryInitIsExpression
     with AllocateIOLocalVar
     with FixedContentsUsingArrayByteLiteral
     with UniversalDoc
@@ -91,6 +92,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.puts("self._io = _io")
     out.puts("self._parent = _parent")
     out.puts("self._root = _root if _root else self")
+    out.puts("self._fields_init()")
 
     if (isHybrid)
       out.puts("self._is_le = _is_le")
@@ -143,8 +145,16 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.puts(s"def _write$suffix(self, io):")
     out.inc
   }
-
+  
+  override def initHeader(): Unit = {
+    out.puts
+    out.puts(s"def _fields_init(self):")
+    out.inc
+  }
+  
   override def readFooter() = universalFooter
+
+  override def initFooter() = universalFooter
 
   override def attributeDeclaration(attrName: Identifier, attrType: DataType, isNullable: Boolean): Unit = {}
 
@@ -610,6 +620,11 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     native_type
   }
 
+  override def defineArrayType(id: Identifier, datatype: DataType): Unit = {
+    out.puts(s"${privateMemberName(id)} = ArrayKaitaiField()")
+
+  }
+
   override def defineReadStart(id: Identifier, datatype: DataType): Unit = {
     val nativeType = getTypeDataType(datatype)
 
@@ -623,9 +638,45 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
         out.puts(s"${privateMemberName(id)} = IntKaitaiField(${translator.doBoolLiteral(inttype.signed)}, ${inttype.maxValue.getOrElse("None")}, ${inttype.minValue.getOrElse("None")}, ${8*inttype.width.width})")
       case floattype : FloatMultiType=> 
         out.puts(s"${privateMemberName(id)} = FloatKaitaiField(${floattype.maxValue.getOrElse("None")})")
-      
+      case strtype : StrType => {
+        val choiceString: StringBuilder = StringBuilder.newBuilder
+        strtype.choices match {
+          case Some(choice) => {
+            choiceString.append("[")
+            for (c <- choice) choiceString.append(s"${'"'}${c}${'"'},")
+            choiceString.append("]")
+          }
+          case None => choiceString.append("None")
+        }
+        out.puts(s"${privateMemberName(id)} = StringKaitaiField(None, ${choiceString.result()})\n")
+      }
+      case bytestype : BytesType => {
+        val choiceString: StringBuilder = StringBuilder.newBuilder
+        bytestype.choices match {
+          case Some(choice) => {
+            choiceString.append("[")
+            for (c <- choice) choiceString.append(s"b${'"'}${c}${'"'},")
+            choiceString.append("]")
+          }
+          case None => choiceString.append("None")
+        }
+        out.puts(s"${privateMemberName(id)} = BytesKaitaiField(None, ${choiceString.result()})\n")
+      }
+      case switchtype: SwitchType => {
+        var mapString: StringBuilder = StringBuilder.newBuilder
+        mapString.append("{ ")
+        for ((k, v) <- switchtype.cases) {
+          mapString.append(s"${expression(k)}: ${getTypeDataType(v)},")
+        }
+        mapString.append(" }")
+        println(mapString)
+        
+        out.puts(s"${privateMemberName(id)} = SwitchTypeKaitaiField(${expression(switchtype.on)}, ${mapString.result()})")
+
+      }
+      case _ => out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType)")
     } 
-    out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType, 'value')")
+    
   }
 
 }

@@ -37,10 +37,8 @@ trait EveryReadIsExpression
 
     dataType match {
       case t: UserType =>
-        defineReadStart(id, t)
         attrUserTypeParse(id, t, io, rep, defEndian)
       case t: BytesType =>
-        defineReadStart(id, t)
         attrBytesTypeParse(id, t, io, rep, isRaw)
       case st: SwitchType =>
         val isNullable = if (switchBytesOnlyAsRaw) {
@@ -48,19 +46,15 @@ trait EveryReadIsExpression
         } else {
           st.isNullable
         }
-
         attrSwitchTypeParse(id, st.on, st.cases, io, rep, defEndian, isNullable, st.combinedType)
       case t: StrFromBytesType =>
-        defineReadStart(id, t)
         val expr = translator.bytesToStr(parseExprBytes(t.bytes, io), Ast.expr.Str(t.encoding))
         handleAssignment(id, expr, rep, isRaw)
       case t: EnumType =>
-        defineReadStart(id, t)
         val expr = translator.doEnumById(t.enumSpec.get.name, parseExpr(t.basedOn, t.basedOn, io, defEndian))
         handleAssignment(id, expr, rep, isRaw)
       case _ =>
         val expr = parseExpr(dataType, assignType, io, defEndian)
-        defineReadStart(id, dataType)
         handleAssignment(id, expr, rep, isRaw)
     }
 
@@ -194,6 +188,7 @@ trait EveryReadIsExpression
 
   def getTypeDataType(datatype: DataType): String = {""}
   def defineReadStart(id: Identifier, datatype: DataType): Unit = {}
+  def defineArrayType(id: Identifier, datatype: DataType): Unit = {}
 
   def handleAssignmentRepeatEos(id: Identifier, expr: String): Unit
   def handleAssignmentRepeatExpr(id: Identifier, expr: String): Unit

@@ -3,6 +3,7 @@ package io.kaitai.struct.datatype
 import io.kaitai.struct.exprlang.{Ast, Expressions}
 import io.kaitai.struct.format._
 import io.kaitai.struct.translators.TypeDetector
+import javax.xml.crypto.Data
 
 sealed trait DataType {
   /**
@@ -69,7 +70,9 @@ object DataType {
     def process: Option[ProcessExpr]
   }
 
-  abstract class BytesType extends DataType with Processing
+  abstract class BytesType extends DataType with Processing {
+    var choices: Option[List[String]] = None
+  }
   case object CalcBytesType extends BytesType {
     override def process = None
   }
@@ -95,7 +98,10 @@ object DataType {
     override val process: Option[ProcessExpr]
   ) extends BytesType
 
-  abstract class StrType extends DataType
+  abstract class StrType extends DataType {
+    var choices: Option[List[String]] = None
+  }
+
   case object CalcStrType extends StrType
   case class StrFromBytesType(bytes: BytesType, encoding: String) extends StrType
 
@@ -391,7 +397,16 @@ object DataType {
         floattype.minValue = arg.minValue
         floattype
       }
-      case _ => r
+      case strtype: StrType => {
+        strtype.choices = arg.strChoices
+        strtype
+      }
+      case bytestype: BytesType => {
+        bytestype.choices = arg.strChoices
+        bytestype
+      }
+      case _ =>
+        r
     }
 
     applyEnumType(b, arg.enumRef, path)
