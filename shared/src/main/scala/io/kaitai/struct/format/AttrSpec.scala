@@ -12,11 +12,14 @@ import scala.collection.JavaConversions._
 
 case class ConditionalSpec(ifExpr: Option[Ast.expr], repeat: RepeatSpec)
 
+case class SwitchValueSpec(on: Ast.expr, cases: Map[Ast.expr, Any])
+
 trait AttrLikeSpec extends MemberSpec {
   def dataType: DataType
   def cond: ConditionalSpec
   def doc: DocSpec
 
+  var switchOnValue: Option[SwitchValueSpec] = None
   def isArray: Boolean = cond.repeat != NoRepeat
 
   override def dataTypeComposite: DataType = {
@@ -120,7 +123,8 @@ object AttrSpec {
     "include",
     "eos-error",
     "valid",
-    "repeat"
+    "repeat",
+    "switch-value"
   )
 
   val LEGAL_KEYS_BYTES = Set(
@@ -237,6 +241,7 @@ object AttrSpec {
 
     val (repeatSpec, legalRepeatKeys) = RepeatSpec.fromYaml(srcMap, path)
 
+
     val legalKeys = LEGAL_KEYS ++ legalRepeatKeys ++ (dataType match {
       case _: NumericType => LEGAL_KEYS_NUMERIC
       case _: BytesType => LEGAL_KEYS_BYTES
@@ -249,7 +254,28 @@ object AttrSpec {
 
     ParseUtils.ensureLegalKeys(srcMap, legalKeys, path)
 
-    AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
+    var attrSpec = AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
+        val switchOn = srcMap.get("switch-value")
+    
+    switchOn match {
+      case None => {
+        None
+      }
+      case Some(x) => {
+        x match {
+          case switchon: Map[Any, Any] => {
+            var s = ParseUtils.anyMapToStrMap(switchon, path)
+            attrSpec.switchOnValue = Some(parseSwitchValue(s, path))
+          }
+          case _=> {
+            None
+          }
+        }
+      }
+    }
+
+  attrSpec
+  
   }
 
   def parseContentSpec(c: Any, path: List[String]): Array[Byte] = {
@@ -323,5 +349,28 @@ object AttrSpec {
     }
 
     SwitchType(on, cases ++ addCases)
+  }
+
+  private def parseSwitchValue(
+    switchSpec: Map[String, Any],
+    path: List[String],
+    ): SwitchValueSpec = {
+    val on = ParseUtils.getValueExpression(switchSpec, "switch-on", path)
+    val _cases = ParseUtils.getValueMapStrStr(switchSpec, "cases", path)
+
+    ParseUtils.ensureLegalKeys(switchSpec, LEGAL_KEYS_SWITCH, path)
+    
+    val cases = _cases.map { case (condition, typeName) =>
+      val casePath = path ++ List("cases", condition)
+
+      try {
+        Expressions.parse(condition) -> typeName
+      } catch {
+        case epe: Expressions.ParseException =>
+          throw YAMLParseException.expression(epe, casePath)
+      }
+    }
+
+    SwitchValueSpec(on, cases)
   }
 }
