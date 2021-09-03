@@ -83,6 +83,11 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.inc
   }
 
+  override def classHeaderInput(name: List[String]): Unit = {
+    out.puts(s"class ${type2class(name.last)}($kstructName, GrammarInput):")
+    out.inc
+  }
+
   override def classConstructorHeader(name: String, parentType: DataType, rootClassName: String, isHybrid: Boolean, params: List[ParamDefSpec]): Unit = {
     val endianAdd = if (isHybrid) ", _is_le=None" else ""
     val paramsList = Utils.join(params.map((p) => paramName(p.id)), ", ", ", ", "")

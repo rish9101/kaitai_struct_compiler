@@ -13,5 +13,10 @@ object MarkupClassNames {
       nestedClass.upClass = Some(curClass)
       markupClassNames(nestedClass)
     }
+    curClass.inputs.foreach { case (nestedName: String, nestedClass) =>
+      nestedClass.name = curClass.name ::: List(nestedName)
+      nestedClass.upClass = Some(curClass)
+      markupClassNames(nestedClass)
+    }
   }
 }

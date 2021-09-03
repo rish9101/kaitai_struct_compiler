@@ -71,6 +71,7 @@ abstract class LanguageCompiler(
 
   def classDoc(name: List[String], doc: DocSpec): Unit = {}
   def classHeader(name: List[String]): Unit
+  def classHeaderInput(name: List[String]): Unit = {}
   def classFooter(name: List[String]): Unit
   def classForwardDeclaration(name: List[String]): Unit = {}
 

@@ -40,6 +40,8 @@ object Main {
     new TypeValidator(classSpecs, topClass).run()
 
     topClass.parentClass = GenericStructClassSpec
+
+
   }
 
   /**

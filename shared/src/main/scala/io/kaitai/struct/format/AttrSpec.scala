@@ -18,6 +18,7 @@ trait AttrLikeSpec extends MemberSpec {
   def dataType: DataType
   def cond: ConditionalSpec
   def doc: DocSpec
+  var interaction: InteractionSpec = NonInteraction
 
   var switchOnValue: Option[SwitchValueSpec] = None
   def isArray: Boolean = cond.repeat != NoRepeat
@@ -124,7 +125,8 @@ object AttrSpec {
     "eos-error",
     "valid",
     "repeat",
-    "switch-value"
+    "switch-value",
+    "packet-type"
   )
 
   val LEGAL_KEYS_BYTES = Set(
@@ -274,6 +276,7 @@ object AttrSpec {
       }
     }
 
+  attrSpec.interaction = InteractionSpec.fromYaml(srcMap, path)
   attrSpec
   
   }

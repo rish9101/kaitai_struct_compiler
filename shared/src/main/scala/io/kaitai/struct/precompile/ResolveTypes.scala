@@ -30,6 +30,11 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
     }
 
     curClass.params.foreach((paramDef) => resolveUserTypeForMember(curClass, paramDef))
+
+    curClass.inputs.foreach{ case(inputName, spec) =>
+      resolveUserTypes(spec)
+    }
+
   }
 
   def resolveUserTypeForMember(curClass: ClassSpec, attr: MemberSpec): Unit =

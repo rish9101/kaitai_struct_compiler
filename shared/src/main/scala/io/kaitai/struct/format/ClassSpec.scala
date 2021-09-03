@@ -31,6 +31,7 @@ case class ClassSpec(
   enums: Map[String, EnumSpec]
 ) extends ClassSpecLike with YAMLPath {
   var parentClass: ClassSpecLike = UnknownClassSpec
+  var inputs: Map[String, ClassSpec] = Map()
 
   /**
     * Full absolute name of the class (including all names of classes that
@@ -94,7 +95,8 @@ object ClassSpec {
     "seq",
     "types",
     "instances",
-    "enums"
+    "enums",
+    "inputs"
   )
 
   def fromYaml(src: Any, path: List[String], metaDef: MetaSpec): ClassSpec = {
@@ -135,6 +137,11 @@ object ClassSpec {
       meta, doc,
       params, seq, types, instances, enums
     )
+
+    cs.inputs =  srcMap.get("inputs") match {
+      case Some(value) => inputsFromYaml(value, path ++ List("inputs"), meta)
+      case None => Map()
+    }
 
     // If that's a top-level class, set its name from meta/id
     if (path.isEmpty) {
@@ -234,6 +241,14 @@ object ClassSpec {
       val enumName = ParseUtils.asStr(key, path)
       Identifier.checkIdentifierSource(enumName, "enum", path ++ List(enumName))
       enumName -> EnumSpec.fromYaml(body, path ++ List(enumName))
+    }
+  }
+
+  def inputsFromYaml(src: Any, path: List[String], meta: MetaSpec): Map[String, ClassSpec] = {
+    val srcMap = ParseUtils.asMapStr(src, path)
+    srcMap.map { case (inputName, body) =>
+      Identifier.checkIdentifierSource(inputName, "inputs", path ++ List(inputName))
+      inputName -> ClassSpec.fromYaml(body, path ++ List(inputName), meta) //MetaSpec(path ++ List(inputName),true,None, None, None, false, None,List()))
     }
   }
 

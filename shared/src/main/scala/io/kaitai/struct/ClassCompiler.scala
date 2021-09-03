@@ -99,7 +99,11 @@ class ClassCompiler(
 
     if (!lang.innerClasses)
       compileSubclasses(curClass)
-
+    
+    if (lang.innerClasses) {
+      compileSubclassesInput(curClass)
+      provider.nowClass = curClass
+    }
     if (!lang.innerEnums)
       compileEnums(curClass)
   }
@@ -369,8 +373,84 @@ class ClassCompiler(
     * Compile subclasses for a given class.
     * @param curClass current type to generate code for
     */
-  def compileSubclasses(curClass: ClassSpec): Unit =
-    curClass.types.foreach { case (_, intClass) => compileClass(intClass) }
+  def compileSubclasses(curClass: ClassSpec): Unit = {
+    curClass.types.foreach { case (_, intClass) => 
+      compileClass(intClass)
+    }
+  }
+  def compileSubclassesInput(curClass: ClassSpec): Unit =
+    curClass.inputs.foreach { case (_, intClass) => 
+      compileClassInput(intClass) 
+    }
+
+  def compileClassInput(curClass: ClassSpec): Unit = {
+    provider.nowClass = curClass
+
+    if (!lang.innerDocstrings)
+      compileClassDoc(curClass)
+    lang.classHeaderInput(curClass.name)
+    if (lang.innerDocstrings)
+      compileClassDoc(curClass)
+
+    // Forward declarations for recursive types
+    curClass.types.foreach { case (typeName, _) => lang.classForwardDeclaration(List(typeName)) }
+
+    if (lang.innerEnums)
+      compileEnums(curClass)
+
+    if (lang.config.readStoresPos)
+      lang.debugClassSequence(curClass.seq)
+
+    // Constructor
+    compileConstructor(curClass)
+    
+    compileSeqAttr(curClass.seq)
+
+    // Read method(s)
+    compileEagerRead(curClass.seq, curClass.meta.endian)
+
+    if (config.readWrite) {
+      compileWrite(curClass.seq, curClass.meta.endian)
+      // compileCheck(curClass.seq)
+    }
+
+    // Destructor
+    compileDestructor(curClass)
+
+    // Recursive types
+    if (lang.innerClasses) {
+      compileSubclasses(curClass)
+
+      provider.nowClass = curClass
+    }
+
+    compileInstances(curClass)
+
+    // Attributes declarations and readers
+    val allAttrs: List[MemberSpec] =
+      curClass.seq ++
+      curClass.params ++
+      List(
+        AttrSpec(List(), RootIdentifier, CalcUserType(topClassName, None)),
+        AttrSpec(List(), ParentIdentifier, curClass.parentType)
+      ) ++
+      ExtraAttrs.forClassSpec(curClass, lang)
+    compileAttrDeclarations(allAttrs)
+    compileAttrReaders(allAttrs)
+
+    lang.classFooter(curClass.name)
+
+    if (!lang.innerClasses)
+      compileSubclasses(curClass)
+    
+    if (lang.innerClasses) {
+      compileSubclassesInput(curClass)
+      provider.nowClass = curClass
+    }
+    if (!lang.innerEnums)
+      compileEnums(curClass)
+  }
+
 
   def compileInstances(curClass: ClassSpec) = {
     curClass.instances.foreach { case (instName, instSpec) =>

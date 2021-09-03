@@ -42,3 +42,32 @@ we have the `ClassSpecs` object - Which contains different `ClassSpec`,
                             |-> `attrParse2` based on the dataType of spec, parses it (calling relevant writing functions   from the language specific compiler)
 
 
+```python
+
+class AuthInput(KaitaiStruct, GrammarInput):
+
+    def __init__():
+        self._fields_init()
+    
+    def _fields_init():
+        self._fields = []
+        self.send_uname = self.UnamePacket()
+    
+        self.constraints = dict()
+        self.constrains[self.send_uname] = {'username': 'admin'}
+        self.constraints[self.challenge] = {'solution': eval'()'}
+
+    def __iter__():
+        prev_data = []
+        for f in fields:
+            if transmit:
+                yield TransmitInteraction(f.generate())
+            else:
+                temp = RecvInteraction()
+                yield temp
+                prev_data = prev_data + temp.data
+                f.parse(prev_data)
+                prev_data = prev_data[length_parsed:end]
+            
+
+```

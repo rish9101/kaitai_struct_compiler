@@ -12,6 +12,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor
 import org.yaml.snakeyaml.error.MarkedYAMLException
 import org.yaml.snakeyaml.representer.Representer
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
+import io.kaitai.struct.datatype.DataType._
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Await
