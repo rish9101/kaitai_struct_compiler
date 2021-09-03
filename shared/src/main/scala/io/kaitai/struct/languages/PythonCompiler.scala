@@ -155,6 +155,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.puts
     out.puts(s"def _fields_init(self):")
     out.inc
+    out.puts(s"self._fields = list()")
   }
   
   override def readFooter() = universalFooter
@@ -711,7 +712,9 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
         out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType)")
         out.puts(s"${privateMemberName(id)}._value = $nativeType(self._io,self, self._root)")
       }
-    } 
+    }
+    out.puts(s"self._fields.append(${privateMemberName(id)})")
+    
     
   }
 
