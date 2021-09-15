@@ -38,6 +38,20 @@ object ParseUtils {
     }
   }
 
+  def getOptValueMapStrExpression(src: Map[String, Any], field: String, path: List[String]): Option[Map[String, Ast.expr]] = {
+    var m = src.get(field) match {
+      case None =>
+        None
+      case Some(value) => 
+        var a = asMap(value, path)
+        var b = a.map( { case (k,v) =>
+          asStr(k, path) -> Expressions.parse(asStr(v, path))
+        })
+        Some(b)
+      }
+    m
+  }
+
   def getOptValueStr(src: Map[String, Any], field: String, path: List[String]): Option[String] = {
     src.get(field) match {
       case None =>

@@ -414,6 +414,8 @@ class ClassCompiler(
       // compileCheck(curClass.seq)
     }
 
+    lang.itrFields()
+
     // Destructor
     compileDestructor(curClass)
 

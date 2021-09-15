@@ -20,7 +20,9 @@ trait AttrLikeSpec extends MemberSpec {
   def doc: DocSpec
   var interaction: InteractionSpec = NonInteraction
 
+  var constraints: Option[Map[String, Ast.expr]] = None
   var switchOnValue: Option[SwitchValueSpec] = None
+  var exports: Option[Map[String, Ast.expr]] = None
   def isArray: Boolean = cond.repeat != NoRepeat
 
   override def dataTypeComposite: DataType = {
@@ -126,7 +128,9 @@ object AttrSpec {
     "valid",
     "repeat",
     "switch-value",
-    "packet-type"
+    "packet-type",
+    "constraints",
+    "exports"
   )
 
   val LEGAL_KEYS_BYTES = Set(
@@ -200,7 +204,8 @@ object AttrSpec {
     val maxValue = ParseUtils.getOptValueInt(srcMap, "max_value", path)
     val minValue = ParseUtils.getOptValueInt(srcMap, "min_value", path)
     val strChoices = ParseUtils.getOptListStr(srcMap, "choices", path)
-
+    val constraints = ParseUtils.getOptValueMapStrExpression(srcMap, "constraints", path)
+    val exports = ParseUtils.getOptValueMapStrExpression(srcMap, "exports", path)
 
     // Convert value of `contents` into validation spec and merge it in, if possible
     val valid2: Option[ValidationSpec] = (contents, valid) match {
@@ -257,7 +262,10 @@ object AttrSpec {
     ParseUtils.ensureLegalKeys(srcMap, legalKeys, path)
 
     var attrSpec = AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
-        val switchOn = srcMap.get("switch-value")
+    val switchOn = srcMap.get("switch-value")
+    
+    attrSpec.constraints = constraints
+    attrSpec.exports = exports
     
     switchOn match {
       case None => {

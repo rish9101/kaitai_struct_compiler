@@ -65,6 +65,9 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     )
     out.dec
     out.puts
+
+    out.puts("exports = dict()")
+
   }
 
   override def opaqueClassDeclaration(classSpec: ClassSpec): Unit = {
@@ -640,11 +643,11 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     }
    }
 
-   def generateFloatFieldObject(floattype: FloatMultiType, switchValOn: String, switchValCases: String): String = {
+  def generateFloatFieldObject(floattype: FloatMultiType, switchValOn: String, switchValCases: String): String = {
      s"FloatKaitaiField(${floattype.maxValue.getOrElse("None")}, switch_value_on= $switchValOn , switch_value = $switchValCases)"
    }
 
-   def generateStringFieldObject(strtype: StrType, switchValOn: String, switchValCases: String): String = {
+  def generateStringFieldObject(strtype: StrType, switchValOn: String, switchValCases: String): String = {
      val choiceString: StringBuilder = StringBuilder.newBuilder
      strtype.choices match {
        case Some(choice) => {
@@ -657,7 +660,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       s"StringKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
    }
   
-   def generateBytesFieldObject(bytestype: BytesType, switchValOn: String, switchValCases: String): String = {
+  def generateBytesFieldObject(bytestype: BytesType, switchValOn: String, switchValCases: String): String = {
      val choiceString: StringBuilder = StringBuilder.newBuilder
      bytestype.choices match {
        case Some(choice) => {
@@ -670,12 +673,64 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       s"BytesKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
    }
 
+  override def itrFields(): Unit = {
+    out.puts("def __iter__(self):")
+    out.inc
+    out.puts("prev_data = bytes()")
+    out.puts("for f in self._fields:")
+    out.inc
+    out.puts("if f.interaction == PacketType.transmit:")
+    out.inc
+    out.puts("yield TransmitInteraction(f._value.generate())")
+    out.dec
+    out.puts("else:")
+    out.inc
+    out.puts("tmp_recv = ReceiveInteraction()")
+    out.puts("yield tmp_recv")
+    out.puts("prev_data += tmp_recv.data")
+    out.puts("f._read(BytesIO(prev_data))")
+    out.puts("prev_data = prev_data[len(f.data):len(prev_data)]")
+    out.dec
+    out.dec
+    out.dec
+    out.puts
+  }
 
-  override def defineReadStart(id: Identifier, datatype: DataType, switchOnValue: Option[SwitchValueSpec]): Unit = {
+  override def defineReadEnd(id: Identifier, constraints: Map[String,expr]): Unit = {
+
+    var mapString: StringBuilder = new StringBuilder
+    mapString.append("{ ")
+    for ((k, v) <- constraints ) {
+      mapString.append(s"'$k': lambda: ${expression(v)}, ")
+    }
+    mapString.append("}")
+    println(s"Here: ${mapString.result()}")
+
+    out.puts(s"self._constraints[${privateMemberName(id)}] = ${mapString.result()}")
+
+  }
+
+  override def defineExports(id: Identifier, constraints: Map[String,Ast.expr]): Unit = {
+
+
+    for ((k, v) <- constraints ) {
+      out.puts(s"exports['$k'] = lambda: ${expression(v)}")
+    }
+
+  }
+
+  override def defineReadStart(id: Identifier, datatype: DataType, switchOnValue: Option[SwitchValueSpec], interaction: InteractionSpec): Unit = {
     val nativeType = getTypeDataType(datatype)
 
     val switchValOn = defineSwitchOn(switchOnValue)
     val switchValCases = defineSwitchMap(switchOnValue)
+
+    val interactionStr: String = interaction match {
+      case TransmitInteraction => "interaction = PacketType.transmit"
+      case ReceiveInteraction => "interaction = PacketType.receive"
+      case DelayInteraction => "interaction = PacketType.delay"
+      case NonInteraction => ""
+    }
 
     datatype match {
       
@@ -709,7 +764,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
       }
       case _ => {
-        out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType)")
+        out.puts(s"${privateMemberName(id)} = KaitaiField($nativeType, $interactionStr)")
         out.puts(s"${privateMemberName(id)}._value = $nativeType(self._io,self, self._root)")
       }
     }

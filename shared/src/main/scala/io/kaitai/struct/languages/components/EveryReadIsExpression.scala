@@ -187,7 +187,9 @@ trait EveryReadIsExpression
   */
 
   def getTypeDataType(datatype: DataType): String = {""}
-  def defineReadStart(id: Identifier, datatype: DataType, switchOnValue: Option[SwitchValueSpec]): Unit = {}
+  def defineReadStart(id: Identifier, datatype: DataType, switchOnValue: Option[SwitchValueSpec], interaction: InteractionSpec): Unit = {}
+  def defineReadEnd(id: Identifier, constraints: Map[String, Ast.expr]): Unit = {}
+  def defineExports(id: Identifier, exports: Map[String, Ast.expr]): Unit = {}
   def defineArrayType(id: Identifier, datatype: DataType): Unit = {}
 
   def handleAssignmentRepeatEos(id: Identifier, expr: String): Unit

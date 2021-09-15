@@ -108,6 +108,7 @@ abstract class LanguageCompiler(
   def checkFooter(): Unit = ???
   def attrCheck(attr: AttrLikeSpec, id: Identifier): Unit = ???
 
+  def itrFields(): Unit = {}
   // TODO: delete
   def attrFixedContentsParse(attrName: Identifier, contents: Array[Byte]): Unit
 
