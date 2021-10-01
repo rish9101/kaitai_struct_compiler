@@ -130,13 +130,13 @@ trait EveryReadIsExpression
       // makes us assign constructed element to a temporary variable in case of arrays.
       rep match {
         case NoRepeat =>
-          handleAssignmentSimple(id, expr)
+          // handleAssignmentSimple(id, expr)
           userTypeDebugRead(privateMemberName(id))
         case _ =>
           val tempVarName = localTemporaryName(id)
           handleAssignmentTempVar(dataType, tempVarName, expr)
           userTypeDebugRead(tempVarName)
-          handleAssignment(id, tempVarName, rep, false)
+          // handleAssignment(id, tempVarName, rep, false)
       }
     }
   }
