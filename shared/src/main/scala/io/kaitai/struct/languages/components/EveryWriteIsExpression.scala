@@ -72,7 +72,7 @@ trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguag
   def writeExprAsString(id: Identifier, rep: RepeatSpec, isRaw: Boolean): String = {
     rep match {
       case NoRepeat =>
-        privateMemberName(id)
+        s"${privateMemberName(id)}.value"
       case _ =>
         translator.arraySubscript(
           Ast.expr.Name(Ast.identifier(idToStr(id))),
