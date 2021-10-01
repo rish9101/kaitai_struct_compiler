@@ -628,11 +628,13 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   }
 
   override def defineArrayType(id: Identifier, datatype: DataType): Unit = {
+    importList.add("from kaitaistruct import ArrayKaitaiField")
     out.puts(s"${privateMemberName(id)} = ArrayKaitaiField()")
 
   }
 
   def generateIntFieldObject(inttype: IntType, switchValOn: String, switchValCases: String): String = {
+    importList.add("from kaitaistruct import IntKaitaiField")
     inttype match {
       case int1type: Int1Type =>
         s"IntKaitaiField(${translator.doBoolLiteral(int1type.signed)}, ${int1type.maxValue.getOrElse("None")}, ${int1type.minValue.getOrElse("None")}, 8, switch_value_on= $switchValOn , switch_value = $switchValCases)"
@@ -642,6 +644,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
    }
 
   def generateFloatFieldObject(floattype: FloatMultiType, switchValOn: String, switchValCases: String): String = {
+    importList.add("from kaitaistruct import FloatKaitaiField")
      s"FloatKaitaiField(${floattype.maxValue.getOrElse("None")}, switch_value_on= $switchValOn , switch_value = $switchValCases)"
    }
 
@@ -655,7 +658,8 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
         }
        case None => choiceString.append("None")
       }
-      s"StringKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
+    importList.add("from kaitaistruct import StringKaitaiField")
+    s"StringKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
    }
   
   def generateBytesFieldObject(bytestype: BytesType, switchValOn: String, switchValCases: String): String = {
@@ -758,6 +762,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
         }
         mapString.append(" }")
         
+        importList.add("from kaitaistruct import SwitchTypeKaitaiField")
         out.puts(s"${privateMemberName(id)} = SwitchTypeKaitaiField(${expression(switchtype.on)}, ${mapString.result()})")
 
       }
