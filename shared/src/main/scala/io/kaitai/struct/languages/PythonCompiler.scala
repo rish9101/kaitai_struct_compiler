@@ -46,7 +46,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
     importList.add("from pkg_resources import parse_version")
     importList.add("import kaitaistruct")
-    importList.add(s"from kaitaistruct import $kstructName, $kstreamName,  $kfieldName, BytesIO")
+    importList.add(s"from kaitaistruct import $kstructName, $kstreamName, $kfieldName, BytesIO")
 
     out.puts
     out.puts
@@ -149,13 +149,11 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       case Some(e) => s"${e.toSuffix}"
       case None => ""
     }
-    out.puts
-    out.puts(s"def _write$suffix(self, io):")
+    out.puts(s"def _write$suffix(self):")
     out.inc
   }
   
   override def initHeader(): Unit = {
-    out.puts
     out.puts(s"def _fields_init(self):")
     out.inc
     out.puts(s"self._fields = list()")
@@ -329,7 +327,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def attrUserTypeInstreamWrite(io: String, exprRaw: String, dataType: DataType, exprType: DataType) = {
     val expr = exprRaw
-    out.puts(s"$expr._write($io)")
+    out.puts(s"$expr._write()")
   }
 
   override def attrWriteStreamToStream(srcIo: String, dstIo: String) =

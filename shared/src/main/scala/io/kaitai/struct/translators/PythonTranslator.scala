@@ -48,7 +48,8 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
     s match {
       case Identifier.ITERATOR => "_"
       case Identifier.INDEX => "i"
-      case _ => s"self.${doName(s)}"
+      case Identifier.IO => "self._io"
+      case _ => s"self.${doName(s)}.value"
     }
   }
   override def doName(s: String) = s
