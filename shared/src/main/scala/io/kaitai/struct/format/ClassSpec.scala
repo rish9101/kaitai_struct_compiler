@@ -28,10 +28,11 @@ case class ClassSpec(
   seq: List[AttrSpec],
   types: Map[String, ClassSpec],
   instances: Map[InstanceIdentifier, InstanceSpec],
-  enums: Map[String, EnumSpec]
+  enums: Map[String, EnumSpec],
+  inputs: Map[String, ClassSpec],
+  interactions: Map[String, ClassSpec]
 ) extends ClassSpecLike with YAMLPath {
   var parentClass: ClassSpecLike = UnknownClassSpec
-  var inputs: Map[String, ClassSpec] = Map()
 
   /**
     * Full absolute name of the class (including all names of classes that
@@ -81,6 +82,8 @@ case class ClassSpec(
       types == other.types &&
       instances == other.instances &&
       enums == other.enums &&
+      inputs == other.inputs &&
+      interactions == other.interactions &&
       name == other.name
     case _ => false
   }
@@ -96,7 +99,8 @@ object ClassSpec {
     "types",
     "instances",
     "enums",
-    "inputs"
+    "inputs",
+    "interactions"
   )
 
   def fromYaml(src: Any, path: List[String], metaDef: MetaSpec): ClassSpec = {
@@ -129,19 +133,22 @@ object ClassSpec {
       case Some(value) => enumsFromYaml(value, path ++ List("enums"))
       case None => Map()
     }
+    val inputs: Map[String, ClassSpec] = srcMap.get("inputs") match {
+      case Some(value) => inputsFromYaml(value, path ++ List("inputs"), meta)
+      case None => Map()
+    }
+    val interactions: Map[String, ClassSpec] = srcMap.get("interactions") match {
+      case Some(value) => interactionsFromYaml(value, path ++ List("interactions"), meta)
+      case None => Map()
+    }
 
     checkDupSeqInstIds(seq, instances)
 
     val cs = ClassSpec(
       path, path.isEmpty,
       meta, doc,
-      params, seq, types, instances, enums
+      params, seq, types, instances, enums, inputs, interactions
     )
-
-    cs.inputs =  srcMap.get("inputs") match {
-      case Some(value) => inputsFromYaml(value, path ++ List("inputs"), meta)
-      case None => Map()
-    }
 
     // If that's a top-level class, set its name from meta/id
     if (path.isEmpty) {
@@ -244,11 +251,19 @@ object ClassSpec {
     }
   }
 
-  def inputsFromYaml(src: Any, path: List[String], meta: MetaSpec): Map[String, ClassSpec] = {
+  def inputsFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, ClassSpec] = {
     val srcMap = ParseUtils.asMapStr(src, path)
     srcMap.map { case (inputName, body) =>
       Identifier.checkIdentifierSource(inputName, "inputs", path ++ List(inputName))
-      inputName -> ClassSpec.fromYaml(body, path ++ List(inputName), meta) //MetaSpec(path ++ List(inputName),true,None, None, None, false, None,List()))
+      inputName -> ClassSpec.fromYaml(body, path ++ List(inputName), metaDef)
+    }
+  }
+
+  def interactionsFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, ClassSpec] = {
+    val srcMap = ParseUtils.asMapStr(src, path)
+    srcMap.map { case (interactionName, body) =>
+      Identifier.checkIdentifierSource(interactionName, "interactions", path ++ List(interactionName))
+      interactionName -> ClassSpec.fromYaml(body, path ++ List(interactionName), metaDef)
     }
   }
 
@@ -264,7 +279,9 @@ object ClassSpec {
       seq = List(),
       types = Map(),
       instances = Map(),
-      enums = Map()
+      enums = Map(),
+      inputs = Map(),
+      interactions = Map()
     )
     placeholder.name = typeName
     placeholder
