@@ -12,7 +12,7 @@ import scala.collection.JavaConversions._
 
 case class ConditionalSpec(ifExpr: Option[Ast.expr], repeat: RepeatSpec)
 
-case class SwitchValueSpec(on: Ast.expr, cases: Map[Ast.expr, Any])
+case class SwitchValueSpec(on: Ast.expr, cases: Map[Ast.expr, Ast.expr], caseElse: Ast.expr)
 
 trait AttrLikeSpec extends MemberSpec {
   def dataType: DataType
@@ -87,7 +87,7 @@ case class YamlAttrArgs(
   consume: Boolean,
   eosError: Boolean,
   padRight: Option[Int],
-  contents: Option[Array[Byte]],
+  contents: Option[Any], // FIXME try to replace Any with a Union of Array[Byte] and SwitchValueSpec
   enumRef: Option[String],
   parent: Option[Ast.expr],
   process: Option[ProcessExpr],
@@ -130,11 +130,11 @@ object AttrSpec {
     "switch-value",
     "packet-type",
     "constraints",
-    "exports"
+    "exports",
+    "contents"
   )
 
   val LEGAL_KEYS_BYTES = Set(
-    "contents",
     "size",
     "size-eos",
     "pad-right",
@@ -144,8 +144,8 @@ object AttrSpec {
   )
 
   val LEGAL_KEYS_NUMERIC = Set(
-    "max_value",
-    "min_value"
+    "max-value",
+    "min-value"
   )
 
   val LEGAL_KEYS_STR = Set(
@@ -201,8 +201,8 @@ object AttrSpec {
     val enum = ParseUtils.getOptValueStr(srcMap, "enum", path)
     val parent = ParseUtils.getOptValueExpression(srcMap, "parent", path)
     val valid = srcMap.get("valid").map(ValidationSpec.fromYaml(_, path ++ List("valid")))
-    val maxValue = ParseUtils.getOptValueInt(srcMap, "max_value", path)
-    val minValue = ParseUtils.getOptValueInt(srcMap, "min_value", path)
+    val maxValue = ParseUtils.getOptValueInt(srcMap, "max-value", path)
+    val minValue = ParseUtils.getOptValueInt(srcMap, "min-value", path)
     val strChoices = ParseUtils.getOptListStr(srcMap, "choices", path)
     val constraints = ParseUtils.getOptValueMapStrExpression(srcMap, "constraints", path)
     val exports = ParseUtils.getOptValueMapStrExpression(srcMap, "exports", path)
@@ -210,10 +210,14 @@ object AttrSpec {
     // Convert value of `contents` into validation spec and merge it in, if possible
     val valid2: Option[ValidationSpec] = (contents, valid) match {
       case (None, _) => valid
-      case (Some(byteArray), None) =>
-        Some(ValidationEq(Ast.expr.List(
-          byteArray.map(x => Ast.expr.IntNum(x & 0xff))
-        )))
+      case (Some(cont), None) => cont match {
+          case byteArray: Array[Byte] =>
+            Some(ValidationEq(Ast.expr.List(
+              byteArray.map(x => Ast.expr.IntNum(x & 0xff))
+            )))
+          case sv: SwitchValueSpec =>
+            Some(ValidationSwitchExpr(sv))
+        }
       case (Some(_), Some(_)) =>
         throw new YAMLParseException(s"`contents` and `valid` can't be used together", path)
     }
@@ -263,10 +267,10 @@ object AttrSpec {
 
     var attrSpec = AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
     val switchOn = srcMap.get("switch-value")
-    
+
     attrSpec.constraints = constraints
     attrSpec.exports = exports
-    
+
     switchOn match {
       case None => {
         None
@@ -286,10 +290,10 @@ object AttrSpec {
 
   attrSpec.interaction = InteractionSpec.fromYaml(srcMap, path)
   attrSpec
-  
+
   }
 
-  def parseContentSpec(c: Any, path: List[String]): Array[Byte] = {
+  def parseContentSpec(c: Any, path: List[String]): Any = {
     c match {
       case s: String =>
         s.getBytes(Charset.forName("UTF-8"))
@@ -306,6 +310,9 @@ object AttrSpec {
           }
         }
         bb.toArray
+      case switchon: Map[Any, Any] =>
+        var s = ParseUtils.anyMapToStrMap(switchon, path)
+        parseSwitchValue(s, path)
       case _ =>
         throw new YAMLParseException(s"unable to parse fixed content: $c", path)
     }
@@ -365,23 +372,29 @@ object AttrSpec {
   private def parseSwitchValue(
     switchSpec: Map[String, Any],
     path: List[String],
-    ): SwitchValueSpec = {
+  ): SwitchValueSpec = {
     val on = ParseUtils.getValueExpression(switchSpec, "switch-on", path)
     val _cases = ParseUtils.getValueMapStrStr(switchSpec, "cases", path)
 
     ParseUtils.ensureLegalKeys(switchSpec, LEGAL_KEYS_SWITCH, path)
-    
-    val cases = _cases.map { case (condition, typeName) =>
+
+    val cases = _cases.map { case (condition, expr) =>
       val casePath = path ++ List("cases", condition)
 
       try {
-        Expressions.parse(condition) -> typeName
+        Expressions.parse(condition) -> Expressions.parse(expr)
       } catch {
         case epe: Expressions.ParseException =>
           throw YAMLParseException.expression(epe, casePath)
       }
     }
 
-    SwitchValueSpec(on, cases)
+    val caseElse = cases.get(SwitchType.ELSE_CONST) match {
+      case None =>
+        throw new YAMLParseException("must have an else case in switch-value", path)
+      case Some(x) => x
+    }
+
+    SwitchValueSpec(on, cases, caseElse)
   }
 }

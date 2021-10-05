@@ -317,7 +317,10 @@ object DataType {
     val r = dto match {
       case None =>
         arg.contents match {
-          case Some(c) => FixedBytesType(c, arg.process)
+          case Some(c) => c match {
+            case byteArray: Array[Byte] =>
+              FixedBytesType(byteArray, arg.process)
+          }
           case _ => arg.getByteArrayType(path)
         }
       case Some(dt) => dt match {
