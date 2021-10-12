@@ -41,10 +41,6 @@ object DataType {
     var maxValue: Option[T] = None /*Int.MaxValue*/
   }
 
-  sealed trait StringConstraints {
-    var choices: Option[List[String]] = None
-  }
-
   abstract sealed class NumericType extends DataType
   abstract sealed class BooleanType extends DataType
 
@@ -78,7 +74,6 @@ object DataType {
 
   abstract class BytesType extends DataType
     with Processing
-    with StringConstraints
   case object CalcBytesType extends BytesType {
     override def process = None
   }
@@ -104,7 +99,7 @@ object DataType {
     override val process: Option[ProcessExpr]
   ) extends BytesType
 
-  abstract class StrType extends DataType with StringConstraints
+  abstract class StrType extends DataType
 
   case object CalcStrType extends StrType
   case class StrFromBytesType(bytes: BytesType, encoding: String) extends StrType
@@ -434,14 +429,6 @@ object DataType {
         num.maxValue = arg.maxValue
         num.minValue = arg.minValue
         num
-      }
-      case str: StrType => {
-        str.choices = arg.strChoices
-        str
-      }
-      case bytes: BytesType => {
-        bytes.choices = arg.strChoices
-        bytes
       }
       case _ =>
         r

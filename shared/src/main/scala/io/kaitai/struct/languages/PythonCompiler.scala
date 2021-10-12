@@ -649,30 +649,13 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
    }
 
   def generateStringFieldObject(strtype: StrType): String = {
-     val choiceString: StringBuilder = StringBuilder.newBuilder
-     strtype.choices match {
-       case Some(choice) => {
-         choiceString.append("[")
-         for (c <- choice) choiceString.append(s"${'"'}${c}${'"'},")
-         choiceString.append("]")
-        }
-       case None => choiceString.append("None")
-      }
     importList.add("from kaitaistruct import StringKaitaiField")
-    s"StringKaitaiField(None, ${choiceString.result()})\n"
+    s"StringKaitaiField(None)\n"
    }
   
   def generateBytesFieldObject(bytestype: BytesType): String = {
-     val choiceString: StringBuilder = StringBuilder.newBuilder
-     bytestype.choices match {
-       case Some(choice) => {
-         choiceString.append("[")
-         for (c <- choice) choiceString.append(s"${'"'}${c}${'"'},")
-         choiceString.append("]")
-        }
-       case None => choiceString.append("None")
-      }
-      s"BytesKaitaiField(None, ${choiceString.result()})\n"
+    importList.add("from kaitaistruct import BytesKaitaiField")
+    s"BytesKaitaiField(None)\n"
    }
 
   override def itrFields(): Unit = {

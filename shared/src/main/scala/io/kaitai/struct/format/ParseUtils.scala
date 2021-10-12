@@ -171,6 +171,16 @@ object ParseUtils {
     }
    }
 
+  def getListExpression(src: Map[String, Any], field: String, path: List[String]): List[Ast.expr] =
+    getList[Ast.expr](src, field, {(src, path) => Expressions.parse(asStr(src, path))}, path)
+
+  def getOptListExpression(src: Map[String, Any], field: String, path: List[String]): Option[List[Ast.expr]] = {
+    src.get(field) match {
+      case Some(x) => Some(getList[Ast.expr](src, field, {(src, path) => Expressions.parse(asStr(src, path))}, path))
+      case None => None
+    }
+  }
+
   def asStr(src: Any, path: List[String]): String = {
     src match {
       case str: String =>

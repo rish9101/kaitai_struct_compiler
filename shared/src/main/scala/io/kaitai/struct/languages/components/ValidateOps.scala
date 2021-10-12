@@ -1,9 +1,9 @@
 package io.kaitai.struct.languages.components
 
 import io.kaitai.struct.datatype.DataType.SwitchType
-import io.kaitai.struct.datatype.{DataType, KSError, ValidationNotEqualError, ValidationSwitchValueError}
+import io.kaitai.struct.datatype.{DataType, KSError, ValidationNotEqualError, ValidationSwitchValueError, ValidationSeqContainsError}
 import io.kaitai.struct.exprlang.Ast
-import io.kaitai.struct.format.{AttrSpec, Identifier, IoIdentifier, ValidationEq, ValidationSpec, ValidationSwitchExpr, YAMLParseException}
+import io.kaitai.struct.format.{AttrSpec, Identifier, IoIdentifier, ValidationEq, ValidationSpec, ValidationSwitchExpr, ValidationSeqContains, YAMLParseException}
 import io.kaitai.struct.datatype.DataType.SwitchValue
 
 import scala.util.{Failure, Success, Try}
@@ -41,6 +41,21 @@ trait ValidateOps extends ExceptionNames {
             switchCase(switchOn, cases - SwitchType.ELSE_CONST, caseElse)
           ),
           ksErrorName(ValidationSwitchValueError(attr.dataType)),
+          List(
+            Ast.expr.Name(IoIdentifier.toAstIdentifier),
+            Ast.expr.Str(attr.path.mkString("/", "/", ""))
+          )
+        )
+      case ValidationSeqContains(seq) =>
+        attrValidateExpr(
+          attrId,
+          attr.dataType,
+          Ast.expr.BinOp(
+            Ast.expr.List(seq),
+            Ast.operator.Contains,
+            Ast.expr.Name(attrId.toAstIdentifier)
+          ),
+          ksErrorName(ValidationSeqContainsError(attr.dataType)),
           List(
             Ast.expr.Name(IoIdentifier.toAstIdentifier),
             Ast.expr.Str(attr.path.mkString("/", "/", ""))

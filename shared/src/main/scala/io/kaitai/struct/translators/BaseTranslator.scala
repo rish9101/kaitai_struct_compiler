@@ -108,6 +108,10 @@ abstract class BaseTranslator(val provider: TypeProvider)
             numericBinOp(left, op, right)
           case (_: StrType, _: StrType, Ast.operator.Add) =>
             strConcat(left, right)
+          case (_: ArrayType, _, Ast.operator.Contains) =>
+            doSeqContains(left, right)
+          case (_: BytesType, _, Ast.operator.Contains) =>
+            doSeqContains(left, right)
           case (ltype, rtype, _) =>
             throw new TypeMismatchError(s"can't do $ltype $op $rtype")
         }
@@ -177,6 +181,11 @@ abstract class BaseTranslator(val provider: TypeProvider)
 
   def doEnumByLabel(enumTypeAbs: List[String], label: String): String
   def doEnumById(enumTypeAbs: List[String], id: String): String
+
+  def doSeqContains(seq: Ast.expr, value: Ast.expr): String = {
+    // FIXME this must not be defined here, but CBA to implement it in all langs
+    s"${translate(value)} in ${translate(seq)}"
+  }
 
   // Predefined methods of various types
   def strConcat(left: Ast.expr, right: Ast.expr): String = s"${translate(left)} + ${translate(right)}"

@@ -127,6 +127,7 @@ object Ast {
     case object BitOr  extends operator
     case object BitXor  extends operator
     case object BitAnd  extends operator
+    case object Contains extends operator
   }
 
   sealed trait unaryop

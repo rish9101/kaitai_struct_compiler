@@ -59,6 +59,11 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
   override def doEnumById(enumTypeAbs: List[String], id: String): String = {
     s"${PythonCompiler.kstreamName}.resolve_enum(${PythonCompiler.types2class(enumTypeAbs)}, $id)"
   }
+
+  override def doSeqContains(seq: Ast.expr, value: Ast.expr): String = {
+    s"${translate(value)} in ${translate(seq)}"
+  }
+
   override def booleanOp(op: Ast.boolop) = op match {
     case Ast.boolop.Or => "or"
     case Ast.boolop.And => "and"

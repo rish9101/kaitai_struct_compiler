@@ -90,7 +90,7 @@ case class YamlAttrArgs(
   process: Option[ProcessExpr],
   maxValue: Option[Int], // FIXME what about float types?
   minValue: Option[Int],
-  strChoices: Option[List[String]]
+  valChoices: Option[List[Ast.expr]]
 ) {
   def getByteArrayType(path: List[String]) = {
     (size, sizeEos) match {
@@ -142,7 +142,8 @@ object AttrSpec {
 
   val LEGAL_KEYS_NUMERIC = Set(
     "max-value",
-    "min-value"
+    "min-value",
+    "choices"
   )
 
   val LEGAL_KEYS_STR = Set(
@@ -200,14 +201,14 @@ object AttrSpec {
     val valid = srcMap.get("valid").map(ValidationSpec.fromYaml(_, path ++ List("valid")))
     val maxValue = ParseUtils.getOptValueInt(srcMap, "max-value", path)
     val minValue = ParseUtils.getOptValueInt(srcMap, "min-value", path)
-    val strChoices = ParseUtils.getOptListStr(srcMap, "choices", path)
+    val valChoices = ParseUtils.getOptListExpression(srcMap, "choices", path)
     val constraints = ParseUtils.getOptValueMapStrExpression(srcMap, "constraints", path)
     val exports = ParseUtils.getOptValueMapStrExpression(srcMap, "exports", path)
 
     // Convert value of `contents` into validation spec and merge it in, if possible
-    val valid2: Option[ValidationSpec] = (contents, valid) match {
-      case (None, _) => valid
-      case (Some(cont), None) => cont match {
+    val valid2: Option[ValidationSpec] = (contents, valChoices, valid) match {
+      case (None, None, _) => valid
+      case (Some(cont), None, None) => cont match {
         case byteArray: Array[Byte] =>
           Some(ValidationEq(Ast.expr.List(
             byteArray.map(x => Ast.expr.IntNum(x & 0xff))
@@ -215,8 +216,9 @@ object AttrSpec {
         case sv: SwitchValue =>
           Some(ValidationSwitchExpr(sv))
       }
-      case (Some(_), Some(_)) =>
-        throw new YAMLParseException(s"`contents` and `valid` can't be used together", path)
+      case (None, Some(choices), None) => Some(ValidationSeqContains(choices))
+      case (Some(_), Some(_), Some(_)) =>
+        throw new YAMLParseException(s"`contents`, `choices`, and `valid` can't be used together", path)
     }
 
     val typObj = srcMap.get("type")
@@ -224,7 +226,7 @@ object AttrSpec {
     val yamlAttrArgs = YamlAttrArgs(
       size, sizeEos,
       encoding, terminator, include, consume, eosError, padRight,
-      contents, enum, parent, process, maxValue, minValue, strChoices
+      contents, enum, parent, process, maxValue, minValue, valChoices
     )
 
     // Unfortunately, this monstrous match can't rewritten in simpler way due to Java type erasure

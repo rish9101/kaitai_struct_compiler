@@ -31,6 +31,10 @@ case class ValidationSwitchValueError(dt: DataType) extends KSError {
   def name = "ValidationSwitchValueError"
 }
 
+case class ValidationSeqContainsError(dt: DataType) extends  KSError {
+  def name = "ValidationSeqContainsError"
+}
+
 /**
   * Exception that is thrown when we can't decided on endianness
   * and thus can't proceed with parsing.

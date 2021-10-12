@@ -10,6 +10,7 @@ case class ValidationRange(min: Option[Ast.expr], max: Option[Ast.expr]) extends
 case class ValidationAnyOf(values: List[Ast.expr]) extends ValidationSpec
 case class ValidationExpr(checkExpr: Ast.expr) extends ValidationSpec
 case class ValidationSwitchExpr(switchval: SwitchValue) extends ValidationSpec
+case class ValidationSeqContains(seq: List[Ast.expr]) extends ValidationSpec
 
 object ValidationSpec {
   def fromYaml(src: Any, path: List[String]): ValidationSpec = {
