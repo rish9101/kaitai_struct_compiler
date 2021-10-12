@@ -976,18 +976,18 @@ object CppCompiler extends LanguageCompilerStatic
 
   def kaitaiType2NativeType(config: CppRuntimeConfig, attrType: DataType, absolute: Boolean = false): String = {
     attrType match {
-      case Int1Type(false, _) => "uint8_t"
-      case IntMultiType(false, Width2, _, _) => "uint16_t"
-      case IntMultiType(false, Width4, _, _) => "uint32_t"
-      case IntMultiType(false, Width8, _, _) => "uint64_t"
+      case Int1Type(false) => "uint8_t"
+      case IntMultiType(false, Width2, _) => "uint16_t"
+      case IntMultiType(false, Width4, _) => "uint32_t"
+      case IntMultiType(false, Width8, _) => "uint64_t"
 
-      case Int1Type(true, _) => "int8_t"
-      case IntMultiType(true, Width2, _, _) => "int16_t"
-      case IntMultiType(true, Width4, _, _) => "int32_t"
-      case IntMultiType(true, Width8, _, _) => "int64_t"
+      case Int1Type(true) => "int8_t"
+      case IntMultiType(true, Width2, _) => "int16_t"
+      case IntMultiType(true, Width4, _) => "int32_t"
+      case IntMultiType(true, Width8, _) => "int64_t"
 
-      case FloatMultiType(Width4, _, _) => "float"
-      case FloatMultiType(Width8, _, _) => "double"
+      case FloatMultiType(Width4, _) => "float"
+      case FloatMultiType(Width8, _) => "double"
 
       case BitsType(_) => "uint64_t"
 

@@ -367,8 +367,8 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def internalEnumIntType(basedOn: IntType): DataType = {
       basedOn match {
-      case IntMultiType(signed, _, endian, _) => IntMultiType(signed, Width8, endian, None)
-      case _ => IntMultiType(true, Width8, None, None)
+      case IntMultiType(signed, _, endian) => IntMultiType(signed, Width8, endian)
+      case _ => IntMultiType(true, Width8, None)
     }  
   }
 

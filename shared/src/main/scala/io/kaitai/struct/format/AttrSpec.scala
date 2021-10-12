@@ -91,7 +91,7 @@ case class YamlAttrArgs(
   enumRef: Option[String],
   parent: Option[Ast.expr],
   process: Option[ProcessExpr],
-  maxValue: Option[Int],
+  maxValue: Option[Int], // FIXME what about float types?
   minValue: Option[Int],
   strChoices: Option[List[String]]
 ) {

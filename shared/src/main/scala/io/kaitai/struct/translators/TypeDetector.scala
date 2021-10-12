@@ -41,10 +41,10 @@ class TypeDetector(provider: TypeProvider) {
           CalcIntType
         } else if (x <= 127) {
           // [0..127] => signed 1-byte integer
-          Int1Type(true, None)
+          Int1Type(true)
         } else {
           // [128..255] => unsigned 1-byte integer
-          Int1Type(false, None)
+          Int1Type(false)
         }
       case Ast.expr.FloatNum(_) => CalcFloatType
       case Ast.expr.Str(_) => CalcStrType
@@ -61,7 +61,7 @@ class TypeDetector(provider: TypeProvider) {
       case Ast.expr.UnaryOp(op: Ast.unaryop, v: Ast.expr) =>
         val t = detectType(v)
         (t, op) match {
-          case (IntMultiType(_, w, _, _), Ast.unaryop.Minus | Ast.unaryop.Invert) if w.width > 4 => t
+          case (IntMultiType(_, w, _), Ast.unaryop.Minus | Ast.unaryop.Invert) if w.width > 4 => t
           case (_: IntType, Ast.unaryop.Minus | Ast.unaryop.Invert) => CalcIntType
           case (_: FloatType, Ast.unaryop.Minus) => t
           case (_: BooleanType, Ast.unaryop.Not) => t
@@ -105,7 +105,7 @@ class TypeDetector(provider: TypeProvider) {
               case _: IntType => elType
               case idxType => throw new TypeMismatchError(s"unable to index an array using $idxType")
             }
-          case _: BytesType => Int1Type(false, None)
+          case _: BytesType => Int1Type(false)
           case cntType => throw new TypeMismatchError(s"unable to apply operation [] to $cntType")
         }
       case Ast.expr.Attribute(value: Ast.expr, attr: Ast.identifier) =>
@@ -114,7 +114,7 @@ class TypeDetector(provider: TypeProvider) {
         detectCallType(call)
       case Ast.expr.List(values: Seq[Ast.expr]) =>
         detectArrayType(values) match {
-          case Int1Type(_, _) => CalcBytesType
+          case Int1Type(_) => CalcBytesType
           case t => ArrayType(t)
         }
       case Ast.expr.CastToType(_, typeName) =>
@@ -150,7 +150,7 @@ class TypeDetector(provider: TypeProvider) {
       case _: BytesType =>
         attr.name match {
           case "length" | "size" => CalcIntType
-          case "first" | "last" | "min" | "max" => Int1Type(false, None)
+          case "first" | "last" | "min" | "max" => Int1Type(false)
           case _ => throw new MethodNotFoundError(attr.name, valType)
         }
       case _: StrType =>
@@ -322,10 +322,10 @@ object TypeDetector {
     } else {
       (t1, t2) match {
         // for 1-byte integers, "unsigned" wins (it is always wider)
-        case (Int1Type(false, _), Int1Type(true, _)) => Int1Type(false, None)
-        case (Int1Type(true, _), Int1Type(false, _)) => Int1Type(false, None)
-        case (Int1Type(_, _), _: IntMultiType) => t2
-        case (_: IntMultiType, Int1Type(_, _)) => t1
+        case (Int1Type(false), Int1Type(true)) => Int1Type(false)
+        case (Int1Type(true), Int1Type(false)) => Int1Type(false)
+        case (Int1Type(_), _: IntMultiType) => t2
+        case (_: IntMultiType, Int1Type(_)) => t1
         case (i1: IntMultiType, i2: IntMultiType) =>
           if (i1.endian == i2.endian && i1.signed == i2.signed) {
             val width = if (i1.width.width > i2.width.width) {
@@ -333,7 +333,7 @@ object TypeDetector {
             } else {
               i2.width
             }
-            IntMultiType(i1.signed, width, i1.endian, None)
+            IntMultiType(i1.signed, width, i1.endian)
           } else {
             CalcIntType
           }

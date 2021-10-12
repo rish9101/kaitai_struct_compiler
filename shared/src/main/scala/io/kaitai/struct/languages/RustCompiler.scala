@@ -497,18 +497,18 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     
   def kaitaiType2NativeType(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false, _) => "u8"
-      case IntMultiType(false, Width2, _, _) => "u16"
-      case IntMultiType(false, Width4, _, _) => "u32"
-      case IntMultiType(false, Width8, _, _) => "u64"
+      case Int1Type(false) => "u8"
+      case IntMultiType(false, Width2, _) => "u16"
+      case IntMultiType(false, Width4, _) => "u32"
+      case IntMultiType(false, Width8, _) => "u64"
 
-      case Int1Type(true, _) => "i8"
-      case IntMultiType(true, Width2, _, _) => "i16"
-      case IntMultiType(true, Width4, _, _) => "i32"
-      case IntMultiType(true, Width8, _, _) => "i64"
+      case Int1Type(true) => "i8"
+      case IntMultiType(true, Width2, _) => "i16"
+      case IntMultiType(true, Width4, _) => "i32"
+      case IntMultiType(true, Width8, _) => "i64"
 
-      case FloatMultiType(Width4, _, _) => "f32"
-      case FloatMultiType(Width8, _, _) => "f64"
+      case FloatMultiType(Width4, _) => "f32"
+      case FloatMultiType(Width8, _) => "f64"
 
       case BitsType(_) => "u64"
 
@@ -540,18 +540,18 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   
   def kaitaiType2Default(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false, _) => "0"
-      case IntMultiType(false, Width2, _, _) => "0"
-      case IntMultiType(false, Width4, _, _) => "0"
-      case IntMultiType(false, Width8, _, _) => "0"
+      case Int1Type(false) => "0"
+      case IntMultiType(false, Width2, _) => "0"
+      case IntMultiType(false, Width4, _) => "0"
+      case IntMultiType(false, Width8, _) => "0"
 
-      case Int1Type(true, _) => "0"
-      case IntMultiType(true, Width2, _, _) => "0"
-      case IntMultiType(true, Width4, _, _) => "0"
-      case IntMultiType(true, Width8, _, _) => "0"
+      case Int1Type(true) => "0"
+      case IntMultiType(true, Width2, _) => "0"
+      case IntMultiType(true, Width4, _) => "0"
+      case IntMultiType(true, Width8, _) => "0"
 
-      case FloatMultiType(Width4, _, _) => "0"
-      case FloatMultiType(Width8, _, _) => "0"
+      case FloatMultiType(Width4, _) => "0"
+      case FloatMultiType(Width8, _) => "0"
 
       case BitsType(_) => "0"
 

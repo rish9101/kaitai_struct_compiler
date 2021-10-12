@@ -32,21 +32,28 @@ object DataType {
     def apiCall(defEndian: Option[FixedEndian]): String
   }
 
+ /**
+  * Data constraint traits
+  */
+
+  sealed trait NumericConstraints[T] {
+    var minValue: Option[T] = None /*Int.MinValue*/
+    var maxValue: Option[T] = None /*Int.MaxValue*/
+  }
+
+  sealed trait StringConstraints {
+    var choices: Option[List[String]] = None
+  }
+
   abstract sealed class NumericType extends DataType
   abstract sealed class BooleanType extends DataType
 
-  abstract sealed class IntType extends NumericType
+  abstract sealed class IntType extends NumericType with NumericConstraints[Int]
   case object CalcIntType extends IntType
-  case class Int1Type(signed: Boolean, maxValue: Option[Int]) extends IntType with ReadableType {
-    
-    var minValue:Option[Int] = None 
+  case class Int1Type(signed: Boolean) extends IntType with ReadableType {
     override def apiCall(defEndian: Option[FixedEndian]): String = if (signed) "s1" else "u1"
-
-
   }
-  case class IntMultiType(signed: Boolean, width: IntWidth, endian: Option[FixedEndian], maxValue: Option[Int]) extends IntType with ReadableType {
-    
-    var minValue:Option[Int] = None
+  case class IntMultiType(signed: Boolean, width: IntWidth, endian: Option[FixedEndian]) extends IntType with ReadableType {
     override def apiCall(defEndian: Option[FixedEndian]): String = {
       val ch1 = if (signed) 's' else 'u'
       val finalEnd = endian.orElse(defEndian)
@@ -58,8 +65,7 @@ object DataType {
 
   abstract class FloatType extends NumericType
   case object CalcFloatType extends FloatType
-  case class FloatMultiType(width: IntWidth, endian: Option[FixedEndian], maxValue: Option[Int]) extends FloatType with ReadableType {
-    var minValue:Option[Int] = None
+  case class FloatMultiType(width: IntWidth, endian: Option[FixedEndian]) extends FloatType with ReadableType {
     override def apiCall(defEndian: Option[FixedEndian]): String = {
       val finalEnd = endian.orElse(defEndian)
       s"f${width.width}${finalEnd.map(_.toSuffix).getOrElse("")}"
@@ -70,9 +76,9 @@ object DataType {
     def process: Option[ProcessExpr]
   }
 
-  abstract class BytesType extends DataType with Processing {
-    var choices: Option[List[String]] = None
-  }
+  abstract class BytesType extends DataType
+    with Processing
+    with StringConstraints
   case object CalcBytesType extends BytesType {
     override def process = None
   }
@@ -98,9 +104,7 @@ object DataType {
     override val process: Option[ProcessExpr]
   ) extends BytesType
 
-  abstract class StrType extends DataType {
-    var choices: Option[List[String]] = None
-  }
+  abstract class StrType extends DataType with StringConstraints
 
   case object CalcStrType extends StrType
   case class StrFromBytesType(bytes: BytesType, encoding: String) extends StrType
@@ -324,8 +328,8 @@ object DataType {
           case _ => arg.getByteArrayType(path)
         }
       case Some(dt) => dt match {
-        case "u1" => Int1Type(false, arg.maxValue)
-        case "s1" => Int1Type(true, arg.maxValue)
+        case "u1" => Int1Type(false)
+        case "s1" => Int1Type(true)
         case ReIntType(signStr, widthStr, endianStr) =>
           IntMultiType(
             signStr match {
@@ -337,8 +341,7 @@ object DataType {
               case "4" => Width4
               case "8" => Width8
             },
-            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path),
-            arg.maxValue
+            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path)
           )
         case ReFloatType(widthStr, endianStr) =>
           FloatMultiType(
@@ -346,8 +349,7 @@ object DataType {
               case "4" => Width4
               case "8" => Width8
             },
-            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path),
-            arg.maxValue
+            Endianness.fromString(Option(endianStr), metaDef.endian, dt, path)
           )
         case ReBitType(widthStr) =>
           (arg.enumRef, widthStr.toInt) match {
@@ -388,25 +390,18 @@ object DataType {
     }
 
     val b = r match {
-      case inttype: Int1Type => {
-        inttype.minValue = arg.minValue
-        inttype
+      case num: IntType => {
+        num.maxValue = arg.maxValue
+        num.minValue = arg.minValue
+        num
       }
-      case inttype: IntMultiType => {
-        inttype.minValue = arg.minValue
-        inttype
+      case str: StrType => {
+        str.choices = arg.strChoices
+        str
       }
-      case floattype: FloatMultiType => {
-        floattype.minValue = arg.minValue
-        floattype
-      }
-      case strtype: StrType => {
-        strtype.choices = arg.strChoices
-        strtype
-      }
-      case bytestype: BytesType => {
-        bytestype.choices = arg.strChoices
-        bytestype
+      case bytes: BytesType => {
+        bytes.choices = arg.strChoices
+        bytes
       }
       case _ =>
         r
@@ -441,8 +436,8 @@ object DataType {
 
   def pureFromString(dt: String): DataType = dt match {
     case "bytes" => CalcBytesType
-    case "u1" => Int1Type(false, None)
-    case "s1" => Int1Type(true, None)
+    case "u1" => Int1Type(false)
+    case "s1" => Int1Type(true)
     case RePureIntType(signStr, widthStr) =>
       IntMultiType(
         signStr match {
@@ -454,7 +449,6 @@ object DataType {
           case "4" => Width4
           case "8" => Width8
         },
-        None,
         None
       )
     case RePureFloatType(widthStr) =>
@@ -463,7 +457,6 @@ object DataType {
           case "4" => Width4
           case "8" => Width8
         },
-        None,
         None
       )
     case ReBitType(widthStr) =>

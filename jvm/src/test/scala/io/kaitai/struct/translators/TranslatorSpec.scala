@@ -13,8 +13,8 @@ import org.scalatest.Matchers._
 class TranslatorSpec extends FunSuite {
 
   // Integer literals + unary minus
-  everybody("123", "123", Int1Type(true, None))
-  everybody("223", "223", Int1Type(false, None))
+  everybody("123", "123", Int1Type(true))
+  everybody("223", "223", Int1Type(false))
   everybody("1234", "1234")
   everybody("-456", "-456")
   everybody("0x1234", "4660")
@@ -489,7 +489,7 @@ class TranslatorSpec extends FunSuite {
   ))
 
   // primitive pure types
-  full("(1 + 2).as<s2>", CalcIntType, IntMultiType(true, Width2, None, None), Map[LanguageCompilerStatic, String](
+  full("(1 + 2).as<s2>", CalcIntType, IntMultiType(true, Width2, None), Map[LanguageCompilerStatic, String](
     CppCompiler -> "static_cast<int16_t>((1 + 2))",
     CSharpCompiler -> "((short) ((1 + 2)))",
     GoCompiler -> "int16((1 + 2))",
@@ -516,7 +516,7 @@ class TranslatorSpec extends FunSuite {
     RubyCompiler -> "[].pack('C*')"
   ))
 
-  full("[].as<u1[]>", CalcIntType, ArrayType(Int1Type(false, None)), Map[LanguageCompilerStatic, String](
+  full("[].as<u1[]>", CalcIntType, ArrayType(Int1Type(false)), Map[LanguageCompilerStatic, String](
     CppCompiler -> "std::string(\"\")",
     CSharpCompiler -> "new List<byte> {  }",
     GoCompiler -> "[]uint8{}",
@@ -529,7 +529,7 @@ class TranslatorSpec extends FunSuite {
     RubyCompiler -> "[]"
   ))
 
-  full("[].as<f8[]>", CalcIntType, ArrayType(FloatMultiType(Width8, None, None)), Map[LanguageCompilerStatic, String](
+  full("[].as<f8[]>", CalcIntType, ArrayType(FloatMultiType(Width8, None)), Map[LanguageCompilerStatic, String](
     CppCompiler -> "std::string(\"\", 0)",
     CSharpCompiler -> "new List<double> {  }",
     GoCompiler -> "[]float64{}",
@@ -557,7 +557,7 @@ class TranslatorSpec extends FunSuite {
   ))
 
   // type enforcement: casting to array of integers
-  full("[0, 1, 2].as<u1[]>", CalcIntType, ArrayType(Int1Type(false, None)), Map[LanguageCompilerStatic, String](
+  full("[0, 1, 2].as<u1[]>", CalcIntType, ArrayType(Int1Type(false)), Map[LanguageCompilerStatic, String](
     CSharpCompiler -> "new List<byte> { 0, 1, 2 }",
     GoCompiler -> "[]uint8{0, 1, 2}",
     JavaCompiler -> "new ArrayList<Integer>(Arrays.asList(0, 1, 2))",

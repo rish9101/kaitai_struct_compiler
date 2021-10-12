@@ -12,8 +12,8 @@ class SwitchType$Test extends FunSpec {
       val t = SwitchType(
         Expressions.parse("foo"),
         Map(
-          Expressions.parse("1") -> DataType.IntMultiType(true, DataType.Width2, Some(LittleEndian), None),
-          Expressions.parse("2") -> DataType.IntMultiType(false, DataType.Width4, Some(LittleEndian), None)
+          Expressions.parse("1") -> DataType.IntMultiType(true, DataType.Width2, Some(LittleEndian)),
+          Expressions.parse("2") -> DataType.IntMultiType(false, DataType.Width4, Some(LittleEndian))
         )
       )
 

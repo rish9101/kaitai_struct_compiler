@@ -547,18 +547,18 @@ object GoCompiler extends LanguageCompilerStatic
     */
   def kaitaiType2NativeType(attrType: DataType): String = {
     attrType match {
-      case Int1Type(false, _) => "uint8"
-      case IntMultiType(false, Width2, _, _) => "uint16"
-      case IntMultiType(false, Width4, _, _) => "uint32"
-      case IntMultiType(false, Width8, _, _) => "uint64"
+      case Int1Type(false) => "uint8"
+      case IntMultiType(false, Width2, _) => "uint16"
+      case IntMultiType(false, Width4, _) => "uint32"
+      case IntMultiType(false, Width8, _) => "uint64"
 
-      case Int1Type(true, _) => "int8"
-      case IntMultiType(true, Width2, _, _) => "int16"
-      case IntMultiType(true, Width4, _, _) => "int32"
-      case IntMultiType(true, Width8, _, _) => "int64"
+      case Int1Type(true) => "int8"
+      case IntMultiType(true, Width2, _) => "int16"
+      case IntMultiType(true, Width4, _) => "int32"
+      case IntMultiType(true, Width8, _) => "int64"
 
-      case FloatMultiType(Width4, _, _) => "float32"
-      case FloatMultiType(Width8, _, _) => "float64"
+      case FloatMultiType(Width4, _) => "float32"
+      case FloatMultiType(Width8, _) => "float64"
 
       case BitsType(_) => "uint64"
 

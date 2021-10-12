@@ -169,7 +169,6 @@ object ParseUtils {
       case Some(x) => Some(getList[String](src, field, asStr, path))
       case None => None
     }
-    
    }
 
   def asStr(src: Any, path: List[String]): String = {

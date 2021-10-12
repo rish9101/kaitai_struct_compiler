@@ -103,9 +103,9 @@ object CalculateSeqSizes {
   def dataTypeByteSize(dataType: DataType): Sized = {
     dataType match {
       case _: Int1Type => FixedSized(1)
-      case IntMultiType(_, width, _, _) => FixedSized(width.width)
+      case IntMultiType(_, width, _) => FixedSized(width.width)
       case FixedBytesType(contents, _) => FixedSized(contents.length)
-      case FloatMultiType(width, _, _) => FixedSized(width.width)
+      case FloatMultiType(width, _) => FixedSized(width.width)
       case _: BytesEosType => DynamicSized
       case blt: BytesLimitType => blt.size.evaluateIntConst match {
         case Some(x) => FixedSized(x.toInt)
