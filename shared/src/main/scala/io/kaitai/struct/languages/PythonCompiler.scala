@@ -633,22 +633,22 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   }
 
-  def generateIntFieldObject(inttype: IntType, switchValOn: String, switchValCases: String): String = {
+  def generateIntFieldObject(inttype: IntType): String = {
     importList.add("from kaitaistruct import IntKaitaiField")
     inttype match {
       case int1type: Int1Type =>
-        s"IntKaitaiField(${translator.doBoolLiteral(int1type.signed)}, ${int1type.maxValue.getOrElse("None")}, ${int1type.minValue.getOrElse("None")}, 8, switch_value_on= $switchValOn , switch_value = $switchValCases)"
+        s"IntKaitaiField(${translator.doBoolLiteral(int1type.signed)}, ${int1type.maxValue.getOrElse("None")}, ${int1type.minValue.getOrElse("None")}, 8)"
       case intmultitype: IntMultiType => 
-        s"IntKaitaiField(${translator.doBoolLiteral(intmultitype.signed)}, ${intmultitype.maxValue.getOrElse("None")}, ${intmultitype.minValue.getOrElse("None")}, ${intmultitype.width.width*8}, switch_value_on= $switchValOn , switch_value = $switchValCases)"
+        s"IntKaitaiField(${translator.doBoolLiteral(intmultitype.signed)}, ${intmultitype.maxValue.getOrElse("None")}, ${intmultitype.minValue.getOrElse("None")}, ${intmultitype.width.width*8})"
     }
    }
 
-  def generateFloatFieldObject(floattype: FloatMultiType, switchValOn: String, switchValCases: String): String = {
+  def generateFloatFieldObject(floattype: FloatMultiType): String = {
     importList.add("from kaitaistruct import FloatKaitaiField")
-     s"FloatKaitaiField(${floattype.maxValue.getOrElse("None")}, switch_value_on= $switchValOn , switch_value = $switchValCases)"
+     s"FloatKaitaiField()"
    }
 
-  def generateStringFieldObject(strtype: StrType, switchValOn: String, switchValCases: String): String = {
+  def generateStringFieldObject(strtype: StrType): String = {
      val choiceString: StringBuilder = StringBuilder.newBuilder
      strtype.choices match {
        case Some(choice) => {
@@ -659,10 +659,10 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
        case None => choiceString.append("None")
       }
     importList.add("from kaitaistruct import StringKaitaiField")
-    s"StringKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
+    s"StringKaitaiField(None, ${choiceString.result()})\n"
    }
   
-  def generateBytesFieldObject(bytestype: BytesType, switchValOn: String, switchValCases: String): String = {
+  def generateBytesFieldObject(bytestype: BytesType): String = {
      val choiceString: StringBuilder = StringBuilder.newBuilder
      bytestype.choices match {
        case Some(choice) => {
@@ -672,7 +672,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
         }
        case None => choiceString.append("None")
       }
-      s"BytesKaitaiField(None, ${choiceString.result()}, switch_value_on= $switchValOn , switch_value = $switchValCases)\n"
+      s"BytesKaitaiField(None, ${choiceString.result()})\n"
    }
 
   override def itrFields(): Unit = {
@@ -721,11 +721,8 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   }
 
-  override def defineReadStart(id: Identifier, datatype: DataType, switchOnValue: Option[SwitchValueSpec], interaction: InteractionSpec): Unit = {
+  override def defineReadStart(id: Identifier, datatype: DataType, interaction: InteractionSpec): Unit = {
     val nativeType = getTypeDataType(datatype)
-
-    val switchValOn = defineSwitchOn(switchOnValue)
-    val switchValCases = defineSwitchMap(switchOnValue)
 
     val interactionStr: String = interaction match {
       case TransmitInteraction => "interaction = PacketType.transmit"
@@ -738,25 +735,25 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       
       case inttype : IntType=>
         out.puts(
-          s"${privateMemberName(id)} = ${generateIntFieldObject(inttype, switchValOn, switchValCases)}"
+          s"${privateMemberName(id)} = ${generateIntFieldObject(inttype)}"
           )
       case floattype : FloatMultiType=> 
-        out.puts(s"${privateMemberName(id)} = ${generateFloatFieldObject(floattype, switchValOn, switchValCases)}")
+        out.puts(s"${privateMemberName(id)} = ${generateFloatFieldObject(floattype)}")
       case strtype : StrType => {
-        out.puts(s"${privateMemberName(id)} = ${generateStringFieldObject(strtype, switchValOn, switchValCases)}\n")
+        out.puts(s"${privateMemberName(id)} = ${generateStringFieldObject(strtype)}\n")
       }
       case bytestype : BytesType => {
-        out.puts(s"${privateMemberName(id)} = ${generateBytesFieldObject(bytestype, switchValOn, switchValCases)}\n")
+        out.puts(s"${privateMemberName(id)} = ${generateBytesFieldObject(bytestype)}\n")
       }
       case switchtype: SwitchType => {
         var mapString: StringBuilder = StringBuilder.newBuilder
         mapString.append("{ ")
         for ((k, v) <- switchtype.cases) {
           var s = v match {
-            case inttype: IntType => generateIntFieldObject(inttype, switchValOn, switchValCases)
-            case floattype: FloatMultiType => generateFloatFieldObject(floattype, switchValOn, switchValCases)
-            case strtype: StrType => generateStringFieldObject(strtype, switchValOn, switchValCases)
-            case bytestype: BytesType => generateBytesFieldObject(bytestype, switchValOn, switchValCases)
+            case inttype: IntType => generateIntFieldObject(inttype)
+            case floattype: FloatMultiType => generateFloatFieldObject(floattype)
+            case strtype: StrType => generateStringFieldObject(strtype)
+            case bytestype: BytesType => generateBytesFieldObject(bytestype)
           }
           mapString.append(s"${expression(k)}: ${s},")
         }
@@ -775,42 +772,6 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     
     
   }
-
-  override def defineSwitchMap(switchValSpec: Option[SwitchValueSpec]): String = {
-    
-    switchValSpec match {
-      case None =>
-        "None"
-      case Some(x) =>
-        x match {
-          case switchvalspec: SwitchValueSpec => {
-            var s = StringBuilder.newBuilder
-            s.append("{")
-            for ((k, v) <- switchvalspec.cases) { s.append(s"${expression(k)}: $v,") }
-            s.append("}")
-            // println(s.result())
-            s.result()
-          }
-        }
-    }
-
-  }
-
-  override def defineSwitchOn(switchvalSpec: Option[SwitchValueSpec]): String = {
-    switchvalSpec match {
-      case None =>
-        "None"
-      case Some(x) =>
-        x match {
-          case switchvalspec: SwitchValueSpec => {
-            expression(x.on)
-          }
-          case _=>
-            "None"
-        }
-    }
-  }
-
 }
 
 object PythonCompiler extends LanguageCompilerStatic

@@ -14,7 +14,7 @@ trait EveryInitIsExpression extends LanguageCompiler with ObjectOrientedLanguage
         val io = normalIO
         // attrInit2(id, attr.dataType, io, attr.cond.repeat, false, defEndian)
 
-        defineReadStart(id, attr.dataType, attr.switchOnValue, attr.interaction)
+        defineReadStart(id, attr.dataType, attr.interaction)
         attr.constraints match {
           case None =>
           case Some(value) => defineReadEnd(id, value)
@@ -55,9 +55,4 @@ trait EveryInitIsExpression extends LanguageCompiler with ObjectOrientedLanguage
     //     defineReadStart(id, dataType)
     // }
   }
-
-  def defineSwitchMap(switchValSpec: Option[SwitchValueSpec]): String
-
-  def defineSwitchOn(switchValSpec: Option[SwitchValueSpec]) : String
-
 }

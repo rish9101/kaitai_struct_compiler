@@ -247,7 +247,16 @@ object DataType {
     override def asNonOwning: DataType = SwitchType(on, cases, false)
   }
 
-  object SwitchType {
+  case class SwitchValue(on: Ast.expr, cases: Map[Ast.expr, Ast.expr], caseElse: Ast.expr) extends ComplexDataType {
+    override def isOwning: Boolean = true
+
+    /**
+      * @return True if this switch type includes an "else" case
+      */
+    def hasElseCase: Boolean = cases.contains(SwitchType.ELSE_CONST)
+  }
+
+  class SwitchSpec {
     /**
       * Constant that would be used for "else" case in SwitchType case class "cases" map.
       */
@@ -268,7 +277,9 @@ object DataType {
       ParseUtils.ensureLegalKeys(switchSpec, LEGAL_KEYS_SWITCH, path)
       (_on, _cases)
     }
+  }
 
+  object SwitchType extends SwitchSpec {
     def fromYaml(
       switchSpec: Map[String, Any],
       path: List[String],
@@ -304,6 +315,35 @@ object DataType {
       }
 
       SwitchType(on, cases ++ addCases)
+    }
+  }
+
+  object SwitchValue extends SwitchSpec {
+    def fromYaml(
+      switchSpec: Map[String, Any],
+      path: List[String],
+    ): SwitchValue = {
+      val (_on, _cases) = fromYaml1(switchSpec, path)
+      val on = Expressions.parse(_on)
+
+      val cases = _cases.map { case (condition, expr) =>
+        val casePath = path ++ List("cases", condition)
+
+        try {
+          Expressions.parse(condition) -> Expressions.parse(expr)
+        } catch {
+          case epe: Expressions.ParseException =>
+            throw YAMLParseException.expression(epe, casePath)
+        }
+      }
+
+      val caseElse = cases.get(SwitchType.ELSE_CONST) match {
+        case None =>
+          throw new YAMLParseException("must have an else case in switch-value", path)
+        case Some(x) => x
+      }
+
+      SwitchValue(on, cases, caseElse)
     }
   }
 

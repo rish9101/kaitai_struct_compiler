@@ -12,8 +12,6 @@ import scala.collection.JavaConversions._
 
 case class ConditionalSpec(ifExpr: Option[Ast.expr], repeat: RepeatSpec)
 
-case class SwitchValueSpec(on: Ast.expr, cases: Map[Ast.expr, Ast.expr], caseElse: Ast.expr)
-
 trait AttrLikeSpec extends MemberSpec {
   def dataType: DataType
   def cond: ConditionalSpec
@@ -21,7 +19,6 @@ trait AttrLikeSpec extends MemberSpec {
   var interaction: InteractionSpec = NonInteraction
 
   var constraints: Option[Map[String, Ast.expr]] = None
-  var switchOnValue: Option[SwitchValueSpec] = None
   var exports: Option[Map[String, Ast.expr]] = None
   def isArray: Boolean = cond.repeat != NoRepeat
 
@@ -87,7 +84,7 @@ case class YamlAttrArgs(
   consume: Boolean,
   eosError: Boolean,
   padRight: Option[Int],
-  contents: Option[Any], // FIXME try to replace Any with a Union of Array[Byte] and SwitchValueSpec
+  contents: Option[Any], // FIXME try to replace Any with a Union of Array[Byte] and SwitchValue
   enumRef: Option[String],
   parent: Option[Ast.expr],
   process: Option[ProcessExpr],
@@ -211,13 +208,13 @@ object AttrSpec {
     val valid2: Option[ValidationSpec] = (contents, valid) match {
       case (None, _) => valid
       case (Some(cont), None) => cont match {
-          case byteArray: Array[Byte] =>
-            Some(ValidationEq(Ast.expr.List(
-              byteArray.map(x => Ast.expr.IntNum(x & 0xff))
-            )))
-          case sv: SwitchValueSpec =>
-            Some(ValidationSwitchExpr(sv))
-        }
+        case byteArray: Array[Byte] =>
+          Some(ValidationEq(Ast.expr.List(
+            byteArray.map(x => Ast.expr.IntNum(x & 0xff))
+          )))
+        case sv: SwitchValue =>
+          Some(ValidationSwitchExpr(sv))
+      }
       case (Some(_), Some(_)) =>
         throw new YAMLParseException(s"`contents` and `valid` can't be used together", path)
     }
@@ -244,7 +241,7 @@ object AttrSpec {
             )
           case switchMap: Map[Any, Any] =>
             val switchMapStr = ParseUtils.anyMapToStrMap(switchMap, path)
-            parseSwitch(switchMapStr, path, metaDef, yamlAttrArgs)
+            SwitchType.fromYaml(switchMapStr, path, metaDef, yamlAttrArgs)
           case unknown =>
             throw new YAMLParseException(s"expected map or string, found $unknown", path ++ List("type"))
         }
@@ -266,31 +263,12 @@ object AttrSpec {
     ParseUtils.ensureLegalKeys(srcMap, legalKeys, path)
 
     var attrSpec = AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
-    val switchOn = srcMap.get("switch-value")
 
     attrSpec.constraints = constraints
     attrSpec.exports = exports
 
-    switchOn match {
-      case None => {
-        None
-      }
-      case Some(x) => {
-        x match {
-          case switchon: Map[Any, Any] => {
-            var s = ParseUtils.anyMapToStrMap(switchon, path)
-            attrSpec.switchOnValue = Some(parseSwitchValue(s, path))
-          }
-          case _=> {
-            None
-          }
-        }
-      }
-    }
-
-  attrSpec.interaction = InteractionSpec.fromYaml(srcMap, path)
-  attrSpec
-
+    attrSpec.interaction = InteractionSpec.fromYaml(srcMap, path)
+    attrSpec
   }
 
   def parseContentSpec(c: Any, path: List[String]): Any = {
@@ -312,89 +290,9 @@ object AttrSpec {
         bb.toArray
       case switchon: Map[Any, Any] =>
         var s = ParseUtils.anyMapToStrMap(switchon, path)
-        parseSwitchValue(s, path)
+        SwitchValue.fromYaml(s, path)
       case _ =>
         throw new YAMLParseException(s"unable to parse fixed content: $c", path)
     }
-  }
-
-  val LEGAL_KEYS_SWITCH = Set(
-    "switch-on",
-    "cases"
-  )
-
-  private def parseSwitch(
-    switchSpec: Map[String, Any],
-    path: List[String],
-    metaDef: MetaSpec,
-    arg: YamlAttrArgs
-  ): DataType = {
-    val on = ParseUtils.getValueExpression(switchSpec, "switch-on", path)
-    val _cases = ParseUtils.getValueMapStrStr(switchSpec, "cases", path)
-
-    ParseUtils.ensureLegalKeys(switchSpec, LEGAL_KEYS_SWITCH, path)
-
-    val cases = _cases.map { case (condition, typeName) =>
-      val casePath = path ++ List("cases", condition)
-      val condType = DataType.fromYaml(
-        Some(typeName), casePath, metaDef,
-        arg
-      )
-      try {
-        Expressions.parse(condition) -> condType
-      } catch {
-        case epe: Expressions.ParseException =>
-          throw YAMLParseException.expression(epe, casePath)
-      }
-    }
-
-    // If we have size defined, and we don't have any "else" case already, add
-    // an implicit "else" case that will at least catch everything else as
-    // "untyped" byte array of given size
-    val addCases: Map[Ast.expr, DataType] = if (cases.containsKey(SwitchType.ELSE_CONST)) {
-      Map()
-    } else {
-      (arg.size, arg.sizeEos) match {
-        case (Some(sizeValue), false) =>
-          Map(SwitchType.ELSE_CONST -> BytesLimitType(sizeValue, None, false, None, arg.process))
-        case (None, true) =>
-          Map(SwitchType.ELSE_CONST -> BytesEosType(None, false, None, arg.process))
-        case (None, false) =>
-          Map()
-        case (Some(_), true) =>
-          throw new YAMLParseException("can't have both `size` and `size-eos` defined", path)
-      }
-    }
-
-    SwitchType(on, cases ++ addCases)
-  }
-
-  private def parseSwitchValue(
-    switchSpec: Map[String, Any],
-    path: List[String],
-  ): SwitchValueSpec = {
-    val on = ParseUtils.getValueExpression(switchSpec, "switch-on", path)
-    val _cases = ParseUtils.getValueMapStrStr(switchSpec, "cases", path)
-
-    ParseUtils.ensureLegalKeys(switchSpec, LEGAL_KEYS_SWITCH, path)
-
-    val cases = _cases.map { case (condition, expr) =>
-      val casePath = path ++ List("cases", condition)
-
-      try {
-        Expressions.parse(condition) -> Expressions.parse(expr)
-      } catch {
-        case epe: Expressions.ParseException =>
-          throw YAMLParseException.expression(epe, casePath)
-      }
-    }
-
-    val caseElse = cases.get(SwitchType.ELSE_CONST) match {
-      case None =>
-        throw new YAMLParseException("must have an else case in switch-value", path)
-      case Some(x) => x
-    }
-
-    SwitchValueSpec(on, cases, caseElse)
   }
 }

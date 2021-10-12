@@ -1,7 +1,7 @@
 package io.kaitai.struct.format
 
 import io.kaitai.struct.exprlang.{Ast, Expressions}
-import io.kaitai.struct.format.SwitchValueSpec
+import io.kaitai.struct.datatype.DataType.SwitchValue
 
 sealed trait ValidationSpec
 
@@ -9,7 +9,7 @@ case class ValidationEq(value: Ast.expr) extends ValidationSpec
 case class ValidationRange(min: Option[Ast.expr], max: Option[Ast.expr]) extends ValidationSpec
 case class ValidationAnyOf(values: List[Ast.expr]) extends ValidationSpec
 case class ValidationExpr(checkExpr: Ast.expr) extends ValidationSpec
-case class ValidationSwitchExpr(switchval: SwitchValueSpec) extends ValidationSpec
+case class ValidationSwitchExpr(switchval: SwitchValue) extends ValidationSpec
 
 object ValidationSpec {
   def fromYaml(src: Any, path: List[String]): ValidationSpec = {

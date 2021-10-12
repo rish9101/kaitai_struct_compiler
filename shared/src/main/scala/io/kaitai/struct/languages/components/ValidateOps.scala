@@ -3,7 +3,8 @@ package io.kaitai.struct.languages.components
 import io.kaitai.struct.datatype.DataType.SwitchType
 import io.kaitai.struct.datatype.{DataType, KSError, ValidationNotEqualError, ValidationSwitchValueError}
 import io.kaitai.struct.exprlang.Ast
-import io.kaitai.struct.format.{AttrSpec, Identifier, IoIdentifier, SwitchValueSpec, ValidationEq, ValidationSpec, ValidationSwitchExpr, YAMLParseException}
+import io.kaitai.struct.format.{AttrSpec, Identifier, IoIdentifier, ValidationEq, ValidationSpec, ValidationSwitchExpr, YAMLParseException}
+import io.kaitai.struct.datatype.DataType.SwitchValue
 
 import scala.util.{Failure, Success, Try}
 
@@ -30,7 +31,7 @@ trait ValidateOps extends ExceptionNames {
             Ast.expr.Str(attr.path.mkString("/", "/", ""))
           )
         )
-      case ValidationSwitchExpr(SwitchValueSpec(switchOn, cases, caseElse)) =>
+      case ValidationSwitchExpr(SwitchValue(switchOn, cases, caseElse)) =>
         attrValidateExpr(
           attrId,
           attr.dataType,
