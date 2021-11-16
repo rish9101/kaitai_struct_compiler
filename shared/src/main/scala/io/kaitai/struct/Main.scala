@@ -1,6 +1,6 @@
 package io.kaitai.struct
 
-import io.kaitai.struct.format.{ClassSpec, ClassSpecs, GenericStructClassSpec}
+import io.kaitai.struct.format.{ClassSpec, GenericSpecStructClass$, ProtocolSpec, ProtocolSpecs, StructSpec}
 import io.kaitai.struct.languages.{GoCompiler, RustCompiler}
 import io.kaitai.struct.languages.components.LanguageCompilerStatic
 import io.kaitai.struct.precompile._
@@ -10,17 +10,18 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main {
   /**
-    * Takes a freshly made [[ClassSpecs]] container with a single .ksy loaded
+    * Takes a freshly made [[ProtocolSpecs]] container with a single .ksy loaded
     * into it, launches recursive loading of imports into this container,
     * and then runs precompilation on every class that happens to be there
     * after imports.
+    *
     * @param specs ClassSpecs container with first class loaded into it
     * @param config runtime configuration to be passed to precompile step
     * @return a future that will resolve when both imports and precompilations
     *         are complete; modifies given container by loading extra classes
     *         into it and modifying classes itself by precompilation step
     */
-  def importAndPrecompile(specs: ClassSpecs, config: RuntimeConfig): Future[Unit] = {
+  def importAndPrecompile(specs: ProtocolSpecs, config: RuntimeConfig): Future[Unit] = {
     new LoadImports(specs).processClass(specs.firstSpec, LoadImports.BasePath).map { (allSpecs) =>
       Log.importOps.info(() => s"imports done, got: ${specs.keys} (async=$allSpecs)")
 
@@ -30,8 +31,8 @@ object Main {
     }
   }
 
-  def precompile(classSpecs: ClassSpecs, topClass: ClassSpec, config: RuntimeConfig): Unit = {
-    classSpecs.foreach { case (_, curClass) => MarkupClassNames.markupClassNames(curClass) }
+  def precompile(classSpecs: ProtocolSpecs, topClass: ClassSpec, config: RuntimeConfig): Unit = {
+    classSpecs.foreach { case (_, curClass) => curClass.markupClassNames }
     val opaqueTypes = topClass.meta.opaqueTypes.getOrElse(config.opaqueTypes)
     new ResolveTypes(classSpecs, opaqueTypes).run()
     new ParentTypes(classSpecs).run()
@@ -39,21 +40,20 @@ object Main {
     new CalculateSeqSizes(classSpecs).run()
     new TypeValidator(classSpecs, topClass).run()
 
-    topClass.parentClass = GenericStructClassSpec
-
-
+    topClass.types.foreach { case (_, topClass) => topClass.parentClass = GenericSpecStructClass$ }
   }
 
   /**
-    * Compiles a single [[ClassSpec]] into a single target language using
+    * Compiles a single [[ProtocolSpec]] into a single target language using
     * provided configuration.
+    *
     * @param specs bundle of class specifications (used to search to references there)
     * @param spec class specification to compile
     * @param lang specifies which language compiler will be used
     * @param conf runtime compiler configuration
     * @return a container that contains all compiled files and results
     */
-  def compile(specs: ClassSpecs, spec: ClassSpec, lang: LanguageCompilerStatic, conf: RuntimeConfig): CompileLog.SpecSuccess = {
+  def compile(specs: ProtocolSpecs, spec: ProtocolSpec, lang: LanguageCompilerStatic, conf: RuntimeConfig): CompileLog.SpecSuccess = {
     val config = updateConfig(conf, spec)
 
     val cc = lang match {
@@ -82,7 +82,7 @@ object Main {
     * @param topClass top-level class spec
     * @return updated runtime configuration with applied enforcements
     */
-  private def updateConfig(config: RuntimeConfig, topClass: ClassSpec): RuntimeConfig = {
+  private def updateConfig(config: RuntimeConfig, topClass: ProtocolSpec): RuntimeConfig = {
     if (topClass.meta.forceDebug) {
       config.copy(autoRead = false, readStoresPos = true)
     } else {

@@ -1,7 +1,7 @@
 package io.kaitai.struct.precompile
 
 import io.kaitai.struct.Log
-import io.kaitai.struct.format.{ClassSpec, ClassSpecs}
+import io.kaitai.struct.format.{StructSpec, ClassSpec, ProtocolSpecs}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -10,9 +10,9 @@ import scala.concurrent.Future
   * Precompilation stage that manages loading of extra .ksy files requested in
   * `meta/imports` key of initial .ksy file.
   *
-  * @param specs collection of [[ClassSpec]] entries to work on
+  * @param specs collection of [[StructSpec]] entries to work on
   */
-class LoadImports(specs: ClassSpecs) {
+class LoadImports(specs: ProtocolSpecs) {
   import LoadImports._
 
   /**
@@ -24,10 +24,10 @@ class LoadImports(specs: ClassSpecs) {
     *
     * @param curClass class spec to start recursive import from
     */
-  def processClass(curClass: ClassSpec, workDir: ImportPath): Future[List[ClassSpec]] = {
+  def processClass(curClass: ClassSpec, workDir: ImportPath): Future[List[StructSpec]] = {
     Log.importOps.info(() => s".. LoadImports: processing class ${curClass.nameAsStr} (workDir = $workDir)")
 
-    val thisMetaFuture: Future[List[ClassSpec]] =
+    val thisMetaFuture: Future[List[StructSpec]] =
       Future.sequence(curClass.meta.imports.zipWithIndex.map { case (name, idx) =>
         loadImport(
           name,
@@ -37,14 +37,15 @@ class LoadImports(specs: ClassSpecs) {
         )
       }).map((x) => x.flatten)
 
-    val nestedFuture: Future[Iterable[ClassSpec]] = Future.sequence(curClass.types.map({
+    // FIXME we only load imports from ClassSpecs, not from inputs
+    val nestedFuture: Future[Iterable[StructSpec]] = Future.sequence(curClass.types.map({
       case (_, nestedClass) => processClass(nestedClass, workDir)
     })).map((listOfLists) => listOfLists.flatten)
 
     Future.sequence(List(thisMetaFuture, nestedFuture)).map((x) => x.flatten)
   }
 
-  private def loadImport(name: String, path: List[String], inFile: Option[String], workDir: ImportPath): Future[List[ClassSpec]] = {
+  private def loadImport(name: String, path: List[String], inFile: Option[String], workDir: ImportPath): Future[List[StructSpec]] = {
     Log.importOps.info(() => s".. LoadImports: loadImport($name, workDir = $workDir)")
 
     val impPath = ImportPath.fromString(name)

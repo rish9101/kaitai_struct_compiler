@@ -49,7 +49,7 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
   override def outFileName(topClassName: String): String =
     s"src/${config.java.javaPackage.replace('.', '/')}/${type2class(topClassName)}.java"
 
-  override def outImports(topClass: ClassSpec) =
+  override def outImports(topClass: ClassSpec): String =
     "\n" + importList.toList.map((x) => s"import $x;").mkString("\n") + "\n"
 
   override def fileHeader(topClassName: String): Unit = {
@@ -99,7 +99,12 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
     // fromFile helper makes no sense for inherited endianness structures:
     // they require endianness to be parsed anyway
-    if (!isInheritedEndian && !config.java.fromFileClass.isEmpty && typeProvider.nowClass.params.isEmpty) {
+    val params = typeProvider.nowClass match {
+      case curClass: StructSpec =>
+        curClass.params
+      case _ => List()
+    }
+    if (!isInheritedEndian && !config.java.fromFileClass.isEmpty && params.isEmpty) {
       out.puts(s"public static ${type2class(name)} fromFile(String fileName) throws IOException {")
       out.inc
       out.puts(s"return new ${type2class(name)}(new $fromFileClass(fileName));")
@@ -572,7 +577,7 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit =
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit =
     out.puts(s"$id._read();")
 
   override def switchCasesRender[T](
@@ -794,7 +799,7 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     }
   }
 
-  override def debugClassSequence(seq: List[AttrSpec]) = {
+  override def debugClassSequence(seq: List[AttrLikeSpec]): Unit = {
     val seqStr = seq.map((attr) => "\"" + idToStr(attr.id) + "\"").mkString(", ")
     out.puts(s"public static String[] _seqFields = new String[] { $seqStr };")
   }
@@ -895,7 +900,7 @@ class JavaCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     errName: String,
     errArgs: List[Ast.expr]
   ): Unit = {
-    val errArgsStr = errArgs.map(translator.translate).mkString(", ")
+    val errArgsStr = errArgs.map(translator.translate(_)).mkString(", ")
     out.puts(s"if (!(${translator.translate(checkExpr)})) {")
     out.inc
     out.puts(s"throw new $errName($errArgsStr);")

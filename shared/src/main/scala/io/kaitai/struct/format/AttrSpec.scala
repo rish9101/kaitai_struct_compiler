@@ -12,15 +12,16 @@ import scala.collection.JavaConversions._
 
 case class ConditionalSpec(ifExpr: Option[Ast.expr], repeat: RepeatSpec)
 
+trait ExportSpec {
+  def exports: Option[ValidationSpec]
+}
+
 trait AttrLikeSpec extends MemberSpec {
   def dataType: DataType
   def cond: ConditionalSpec
   def doc: DocSpec
-  var interaction: InteractionSpec = NonInteraction
-
-  var constraints: Option[Map[String, Ast.expr]] = None
-  var exports: Option[Map[String, Ast.expr]] = None
   def isArray: Boolean = cond.repeat != NoRepeat
+  def valid: Option[ValidationSpec]
 
   override def dataTypeComposite: DataType = {
     if (isArray) {
@@ -70,8 +71,9 @@ case class AttrSpec(
   dataType: DataType,
   cond: ConditionalSpec = ConditionalSpec(None, NoRepeat),
   valid: Option[ValidationSpec] = None,
-  doc: DocSpec = DocSpec.EMPTY
-) extends AttrLikeSpec with MemberSpec {
+  doc: DocSpec = DocSpec.EMPTY,
+  exports: Option[ValidationSpec] = None
+) extends AttrLikeSpec with MemberSpec with ExportSpec {
   override def isLazy = false
 }
 
@@ -88,9 +90,8 @@ case class YamlAttrArgs(
   enumRef: Option[String],
   parent: Option[Ast.expr],
   process: Option[ProcessExpr],
-  maxValue: Option[Int], // FIXME what about float types?
-  minValue: Option[Int],
-  valChoices: Option[List[Ast.expr]]
+  maxValue: Option[expr], // FIXME what about float types?
+  minValue: Option[expr]
 ) {
   def getByteArrayType(path: List[String]) = {
     (size, sizeEos) match {
@@ -127,8 +128,7 @@ object AttrSpec {
     "switch-value",
     "packet-type",
     "constraints",
-    "exports",
-    "contents"
+    "exports"
   )
 
   val LEGAL_KEYS_BYTES = Set(
@@ -137,13 +137,15 @@ object AttrSpec {
     "pad-right",
     "parent",
     "process",
-    "choices"
+    "choices",
+    "contents"
   )
 
   val LEGAL_KEYS_NUMERIC = Set(
     "max-value",
     "min-value",
-    "choices"
+    "choices",
+    "contents"
   )
 
   val LEGAL_KEYS_STR = Set(
@@ -151,11 +153,13 @@ object AttrSpec {
     "size-eos",
     "pad-right",
     "encoding",
-    "choices"
+    "choices",
+    "contents"
   )
 
   val LEGAL_KEYS_ENUM = Set(
-    "enum"
+    "enum",
+    "contents"
   )
 
   def fromYaml(src: Any, path: List[String], metaDef: MetaSpec, idx: Int): AttrSpec = {
@@ -199,42 +203,25 @@ object AttrSpec {
     val enum = ParseUtils.getOptValueStr(srcMap, "enum", path)
     val parent = ParseUtils.getOptValueExpression(srcMap, "parent", path)
     val valid = srcMap.get("valid").map(ValidationSpec.fromYaml(_, path ++ List("valid")))
-    val maxValue = ParseUtils.getOptValueInt(srcMap, "max-value", path)
-    val minValue = ParseUtils.getOptValueInt(srcMap, "min-value", path)
+    val maxValue = ParseUtils.getOptValueExpression(srcMap, "max-value", path)
+    val minValue = ParseUtils.getOptValueExpression(srcMap, "min-value", path)
     val valChoices = ParseUtils.getOptListExpression(srcMap, "choices", path)
-    val constraints = ParseUtils.getOptValueMapStrExpression(srcMap, "constraints", path)
-    val exports = ParseUtils.getOptValueMapStrExpression(srcMap, "exports", path)
-
-    // Convert value of `contents` into validation spec and merge it in, if possible
-    val valid2: Option[ValidationSpec] = (contents, valChoices, valid) match {
-      case (None, None, _) => valid
-      case (Some(cont), None, None) => cont match {
-        case byteArray: Array[Byte] =>
-          Some(ValidationEq(Ast.expr.List(
-            byteArray.map(x => Ast.expr.IntNum(x & 0xff))
-          )))
-        case sv: SwitchValue =>
-          Some(ValidationSwitchExpr(sv))
-      }
-      case (None, Some(choices), None) => Some(ValidationSeqContains(choices))
-      case (Some(_), Some(_), Some(_)) =>
-        throw new YAMLParseException(s"`contents`, `choices`, and `valid` can't be used together", path)
-    }
+    val exportConstraints = srcMap.get("exports").map(parseConstraintSpec(_, path ++ List("exports")))
+    val constraints = srcMap.get("constraints").map(parseConstraintSpec(_, path ++ List("constraints")))
 
     val typObj = srcMap.get("type")
 
     val yamlAttrArgs = YamlAttrArgs(
       size, sizeEos,
       encoding, terminator, include, consume, eosError, padRight,
-      contents, enum, parent, process, maxValue, minValue, valChoices
+      contents, enum, parent, process, maxValue, minValue
     )
 
     // Unfortunately, this monstrous match can't rewritten in simpler way due to Java type erasure
     val dataType: DataType = typObj match {
       case None =>
         DataType.fromYaml(
-          None, path, metaDef, yamlAttrArgs
-        )
+        None, path, metaDef, yamlAttrArgs)
       case Some(x) =>
         x match {
           case simpleType: String =>
@@ -249,8 +236,34 @@ object AttrSpec {
         }
     }
 
+    val enumRef = dataType match {
+      case e: EnumType => e
+      case _ => None
+    }
+
+    val valid2: Option[ValidationSpec] = (constraints, contents, valChoices, enumRef, valid) match {
+      case (None, None, None, None, _) => valid
+      case (Some(cmap), None, None, _, None) => Some(ValidationAllOf(cmap))
+      case (None, Some(cont), None, _, None) => cont match {
+        case byteArray: Array[Byte] =>
+          Some(ValidationEq(Ast.expr.List(
+            byteArray.map(x => Ast.expr.IntNum(x & 0xff))
+          )))
+        case sval: SwitchValue =>
+          Some(ValidationSwitchExpr(sval))
+      }
+      case (None, None, Some(choices), _, None) => Some(ValidationSeqContains(choices))
+      case (None, None, None, enumRef @ EnumType(_, _), None) => Some(ValidationEnumContains(enumRef))
+      case (Some(_), Some(_), Some(_), Some(_), Some(_)) =>
+        throw new YAMLParseException(s"`constraints`, `contents`, `choices`, `enum`, and `valid` can't be used together", path)
+    }
+
     val (repeatSpec, legalRepeatKeys) = RepeatSpec.fromYaml(srcMap, path)
 
+    val exports = exportConstraints match {
+      case Some(cmap) => Some(ValidationAllOf(cmap))
+      case _ => None
+    }
 
     val legalKeys = LEGAL_KEYS ++ legalRepeatKeys ++ (dataType match {
       case _: NumericType => LEGAL_KEYS_NUMERIC
@@ -264,13 +277,7 @@ object AttrSpec {
 
     ParseUtils.ensureLegalKeys(srcMap, legalKeys, path)
 
-    var attrSpec = AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc)
-
-    attrSpec.constraints = constraints
-    attrSpec.exports = exports
-
-    attrSpec.interaction = InteractionSpec.fromYaml(srcMap, path)
-    attrSpec
+    AttrSpec(path, id, dataType, ConditionalSpec(ifExpr, repeatSpec), valid2, doc, exports)
   }
 
   def parseContentSpec(c: Any, path: List[String]): Any = {
@@ -294,7 +301,17 @@ object AttrSpec {
         var s = ParseUtils.anyMapToStrMap(switchon, path)
         SwitchValue.fromYaml(s, path)
       case _ =>
-        throw new YAMLParseException(s"unable to parse fixed content: $c", path)
+        throw new YAMLParseException(s"unable to parse contents: $c", path)
+    }
+  }
+
+  def parseConstraintSpec(c: Any, path: List[String]): ConstraintMap = {
+    c match {
+      case constraintMap: Map[Any, Any] =>
+        var cMap = ParseUtils.anyMapToStrMap(constraintMap, path)
+        ConstraintMap.fromYaml(cMap, path)
+      case _ =>
+        throw new YAMLParseException(s"unable to parse constraints", path)
     }
   }
 }

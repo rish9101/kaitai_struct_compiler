@@ -6,7 +6,7 @@ import io.kaitai.struct.datatype.DataType._
 import io.kaitai.struct.exprlang.Ast
 import io.kaitai.struct.format._
 
-class CalculateSeqSizes(specs: ClassSpecs) {
+class CalculateSeqSizes(specs: ProtocolSpecs) {
   def run(): Unit = specs.forEachRec(CalculateSeqSizes.getSeqSize)
 }
 
@@ -30,25 +30,29 @@ object CalculateSeqSizes {
   }
 
   def getSeqSize(curClass: ClassSpec): Sized = {
-    curClass.seqSize match {
-      case DynamicSized | _: FixedSized =>
-      // do nothing, it's already calculated
-      case StartedCalculationSized =>
-        // recursive size dependency encountered => we won't be able to determine
-        // let's break the infinite loop
-        curClass.seqSize = DynamicSized
-      case NotCalculatedSized =>
-        // launch the calculation
-        curClass.seqSize = StartedCalculationSized
-        val seqSize = forEachSeqAttr(curClass, (attr, seqPos, sizeElement, sizeContainer) => {})
-        curClass.seqSize = seqSize match {
-          case Some(size) => FixedSized(size)
-          case None => DynamicSized
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        curClass.seqSize match {
+          case DynamicSized | _: FixedSized =>
+          // do nothing, it's already calculated
+          case StartedCalculationSized =>
+            // recursive size dependency encountered => we won't be able to determine
+            // let's break the infinite loop
+            curClass.seqSize = DynamicSized
+          case NotCalculatedSized =>
+            // launch the calculation
+            curClass.seqSize = StartedCalculationSized
+            val seqSize = forEachSeqAttr(curClass, (attr, seqPos, sizeElement, sizeContainer) => {})
+            curClass.seqSize = seqSize match {
+              case Some(size) => FixedSized(size)
+              case None => DynamicSized
+            }
         }
-    }
 
-    Log.seqSizes.info(() => s"sizeof(${curClass.nameAsStr}) = ${curClass.seqSize}")
-    curClass.seqSize
+        Log.seqSizes.info(() => s"sizeof(${curClass.nameAsStr}) = ${curClass.seqSize}")
+        curClass.seqSize
+      case _ => NotCalculatedSized
+    }
   }
 
   /**
@@ -58,7 +62,7 @@ object CalculateSeqSizes {
     * @param op operation to apply to every sequence attribute
     * @return total size of sequence, if possible (i.e. it's fixed size)
     */
-  def forEachSeqAttr(curClass: ClassSpec, op: (AttrSpec, Option[Int], Sized, Sized) => Unit): Option[Int] = {
+  def forEachSeqAttr(curClass: ClassWithSeqSpec, op: (AttrLikeSpec, Option[Int], Sized, Sized) => Unit): Option[Int] = {
     var seqPos: Option[Int] = Some(0)
     curClass.seq.foreach { attr =>
       val sizeElement = dataTypeBitsSize(attr.dataType)

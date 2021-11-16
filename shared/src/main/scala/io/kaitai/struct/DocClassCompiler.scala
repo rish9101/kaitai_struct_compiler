@@ -4,7 +4,7 @@ import io.kaitai.struct.format._
 import io.kaitai.struct.precompile.CalculateSeqSizes
 import io.kaitai.struct.translators.RubyTranslator
 
-abstract class DocClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends AbstractCompiler {
+abstract class DocClassCompiler(classSpecs: ProtocolSpecs, topClass: ProtocolSpec) extends AbstractCompiler {
   val provider = new ClassTypeProvider(classSpecs, topClass)
   val translator = new RubyTranslator(provider)
 
@@ -14,7 +14,7 @@ abstract class DocClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) ext
   def indent: String
   // END move to SingleOutputFile
 
-  def nowClass: ClassSpec = provider.nowClass
+  def nowClass(): ClassSpec = provider.nowClass
   def nowClassName = provider.nowClass.name
 
   override def compile: CompileLog.SpecSuccess = {
@@ -36,21 +36,28 @@ abstract class DocClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) ext
 
     classHeader(curClass)
 
-    // Sequence
-    compileSeqRead(curClass)
-
-    // Instances
-    curClass.instances.foreach { case (_, instSpec) =>
-      instSpec match {
-        case pis: ParseInstanceSpec =>
-          compileParseInstance(curClass, pis)
-        case vis: ValueInstanceSpec =>
-          compileValueInstance(vis)
-      }
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        // Sequence
+        compileSeqRead(curClass)
+      case _ =>
     }
 
-    // Enums
-    curClass.enums.foreach { case(enumName, enumColl) => compileEnum(enumName, enumColl) }
+    curClass match {
+      case curClass: StructSpec =>
+        // Instances
+        curClass.instances.foreach { case (_, instSpec) =>
+          instSpec match {
+            case pis: ParseInstanceSpec =>
+              compileParseInstance(curClass, pis)
+            case vis: ValueInstanceSpec =>
+              compileValueInstance(vis)
+          }
+        }
+
+        // Enums
+        curClass.enums.foreach { case(enumName, enumColl) => compileEnum(enumName, enumColl) }
+    }
 
     // Recursive types
     curClass.types.foreach { case (_, intClass) => compileClass(intClass) }
@@ -58,7 +65,7 @@ abstract class DocClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) ext
     classFooter(curClass)
   }
 
-  def compileSeqRead(curClass: ClassSpec): Unit = {
+  def compileSeqRead(curClass: ClassWithSeqSpec): Unit = {
     seqHeader(curClass)
 
     CalculateSeqSizes.forEachSeqAttr(curClass, (attr, seqPos, sizeElement, sizeContainer) => {
@@ -77,8 +84,8 @@ abstract class DocClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) ext
   def seqHeader(classSpec: ClassSpec): Unit
   def seqFooter(classSpec: ClassSpec): Unit
 
-  def compileSeqAttr(classSpec: ClassSpec, attr: AttrSpec, seqPos: Option[Int], sizeElement: Sized, sizeContainer: Sized): Unit
-  def compileParseInstance(classSpec: ClassSpec, inst: ParseInstanceSpec): Unit
+  def compileSeqAttr(classSpec: ClassWithSeqSpec, attr: AttrLikeSpec, seqPos: Option[Int], sizeElement: Sized, sizeContainer: Sized): Unit
+  def compileParseInstance(classSpec: StructSpec, inst: ParseInstanceSpec): Unit
   def compileValueInstance(vis: ValueInstanceSpec): Unit
   def compileEnum(enumName: String, enumColl: EnumSpec): Unit
 }

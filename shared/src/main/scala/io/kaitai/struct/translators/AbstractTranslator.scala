@@ -1,5 +1,6 @@
 package io.kaitai.struct.translators
 
+import io.kaitai.struct.datatype.DataType
 import io.kaitai.struct.exprlang.Ast
 
 /**
@@ -16,5 +17,5 @@ trait AbstractTranslator {
     * @param v KS expression to translate
     * @return expression in target language as string
     */
-  def translate(v: Ast.expr): String
+  def translate(v: Ast.expr, t: Option[DataType] = None): String
 }

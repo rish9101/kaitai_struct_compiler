@@ -28,7 +28,8 @@ trait EveryReadIsExpression
     rep: RepeatSpec,
     isRaw: Boolean,
     defEndian: Option[FixedEndian],
-    assignTypeOpt: Option[DataType] = None
+    assignTypeOpt: Option[DataType] = None,
+    valid: Option[ValidationSpec] = None
   ): Unit = {
     val assignType = assignTypeOpt.getOrElse(dataType)
 
@@ -37,7 +38,7 @@ trait EveryReadIsExpression
 
     dataType match {
       case t: UserType =>
-        attrUserTypeParse(id, t, io, rep, defEndian)
+        attrUserTypeParse(id, t, io, rep, defEndian, valid)
       case t: BytesType =>
         attrBytesTypeParse(id, t, io, rep, isRaw)
       case st: SwitchType =>
@@ -96,7 +97,7 @@ trait EveryReadIsExpression
     }
   }
 
-  def attrUserTypeParse(id: Identifier, dataType: UserType, io: String, rep: RepeatSpec, defEndian: Option[FixedEndian]): Unit = {
+  def attrUserTypeParse(id: Identifier, dataType: UserType, io: String, rep: RepeatSpec, defEndian: Option[FixedEndian], valid: Option[ValidationSpec]): Unit = {
     val newIO = dataType match {
       case knownSizeType: UserTypeFromBytes =>
         // we have a fixed buffer, thus we shall create separate IO for it
@@ -120,6 +121,17 @@ trait EveryReadIsExpression
         // no fixed buffer, just use regular IO
         io
     }
+
+    var fixedArgs: List[String] = List()
+    valid match {
+      case Some(ValidationAllOf(cmap)) =>
+        cmap.constraints.foreach { case (expr, expected) =>
+          val newExpr = replaceThis(expr, id)
+          getFirstAttr(newExpr).foreach((x) => fixedArgs :+= translator.translate(Ast.expr.Str(x)))
+        }
+      case _ => Unit
+    }
+
     val expr = parseExpr(dataType, dataType, newIO, defEndian)
     if (config.autoRead) {
       handleAssignment(id, expr, rep, false)
@@ -130,13 +142,13 @@ trait EveryReadIsExpression
       // makes us assign constructed element to a temporary variable in case of arrays.
       rep match {
         case NoRepeat =>
-          // handleAssignmentSimple(id, expr)
-          userTypeDebugRead(privateMemberName(id))
+          handleAssignmentSimple(id, expr)
+          userTypeDebugRead(privateMemberName(id), Some(fixedArgs))
         case _ =>
           val tempVarName = localTemporaryName(id)
           handleAssignmentTempVar(dataType, tempVarName, expr)
-          userTypeDebugRead(tempVarName)
-          // handleAssignment(id, tempVarName, rep, false)
+          handleAssignment(id, tempVarName, rep, false)
+          userTypeDebugRead(tempVarName, Some(fixedArgs))
       }
     }
   }
@@ -182,15 +194,26 @@ trait EveryReadIsExpression
     }
   }
 
+  def getFirstAttr(expr: Ast.expr): Option[String] = {
+    expr match {
+      case Ast.expr.Attribute(value, attr) => value match {
+        case Ast.expr.Name(_) => Some(attr.name)
+        case _ => getFirstAttr(value)
+      }
+      case Ast.expr.Call(value, args) =>
+        getFirstAttr(value)
+      case Ast.expr.Subscript(container: Ast.expr, idx: Ast.expr) =>
+        getFirstAttr(container)
+      case _ => None
+    }
+  }
+
   /*
   Adding functions to support generation of python Field objects
   */
 
-  def getTypeDataType(datatype: DataType): String = {""}
-  def defineReadStart(id: Identifier, datatype: DataType, interaction: InteractionSpec): Unit = {}
-  def defineReadEnd(id: Identifier, constraints: Map[String, Ast.expr]): Unit = {}
+  def defineConstraints(id: Identifier, constraints: Map[String, Ast.expr]): Unit = {}
   def defineExports(id: Identifier, exports: Map[String, Ast.expr]): Unit = {}
-  def defineArrayType(id: Identifier, datatype: DataType): Unit = {}
 
   def handleAssignmentRepeatEos(id: Identifier, expr: String): Unit
   def handleAssignmentRepeatExpr(id: Identifier, expr: String): Unit
@@ -200,7 +223,7 @@ trait EveryReadIsExpression
 
   def parseExpr(dataType: DataType, assignType: DataType, io: String, defEndian: Option[FixedEndian]): String
   def bytesPadTermExpr(expr0: String, padRight: Option[Int], terminator: Option[Int], include: Boolean): String
-  def userTypeDebugRead(id: String): Unit = ???
+  def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit = ???
 
   def instanceCalculate(instName: Identifier, dataType: DataType, value: Ast.expr): Unit = {
     if (config.readStoresPos)

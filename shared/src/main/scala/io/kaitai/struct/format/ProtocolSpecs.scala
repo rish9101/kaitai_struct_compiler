@@ -11,21 +11,21 @@ import scala.concurrent.Future
   * (which at least differ between JVM vs JS), and thus implementations
   * are platform-dependent.
   */
-abstract class ClassSpecs(val firstSpec: ClassSpec) extends mutable.HashMap[String, ClassSpec] {
+abstract class ProtocolSpecs(val firstSpec: ProtocolSpec) extends mutable.HashMap[String, ProtocolSpec] {
   this(firstSpec.name.head) = firstSpec
 
   /**
-    * Calls certain function on all [[ClassSpec]] elements stored in this ClassSpecs,
+    * Calls certain function on all [[StructSpec]] elements stored in this ClassSpecs,
     * and all subtypes stored in these elements, recursively.
     */
   def forEachRec(proc: (ClassSpec) => Unit): Unit =
     forEachTopLevel((_, typeSpec) => typeSpec.forEachRec(proc))
 
   /**
-    * Calls certain function on all top-level [[ClassSpec]] elements stored in this
+    * Calls certain function on all top-level [[StructSpec]] elements stored in this
     * ClassSpecs.
     */
-  def forEachTopLevel(proc: (String, ClassSpec) => Unit): Unit = {
+  def forEachTopLevel(proc: (String, ProtocolSpec) => Unit): Unit = {
     foreach { case (specName, typeSpec) =>
       try {
         proc(specName, typeSpec)
@@ -37,6 +37,6 @@ abstract class ClassSpecs(val firstSpec: ClassSpec) extends mutable.HashMap[Stri
     }
   }
 
-  def importRelative(name: String, path: List[String], inFile: Option[String]): Future[Option[ClassSpec]]
-  def importAbsolute(name: String, path: List[String], inFile: Option[String]): Future[Option[ClassSpec]]
+  def importRelative(name: String, path: List[String], inFile: Option[String]): Future[Option[ProtocolSpec]]
+  def importAbsolute(name: String, path: List[String], inFile: Option[String]): Future[Option[ProtocolSpec]]
 }

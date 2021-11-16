@@ -13,7 +13,7 @@ class RustTranslator(provider: TypeProvider, config: RuntimeConfig) extends Base
     	     "%0#2x".format(x & 0xff)
     ).mkString(", ") + "])"
   override def doByteArrayNonLiteral(elts: Seq[Ast.expr]): String =
-    s"pack('C*', ${elts.map(translate).mkString(", ")})"
+    s"pack('C*', ${elts.map(translate(_)).mkString(", ")})"
 
   override val asciiCharQuoteMap: Map[Char, String] = Map(
     '\t' -> "\\t",

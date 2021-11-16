@@ -36,15 +36,13 @@ object DataType {
   * Data constraint traits
   */
 
-  sealed trait NumericConstraints[T] {
-    var minValue: Option[T] = None /*Int.MinValue*/
-    var maxValue: Option[T] = None /*Int.MaxValue*/
-  }
-
   abstract sealed class NumericType extends DataType
   abstract sealed class BooleanType extends DataType
 
-  abstract sealed class IntType extends NumericType with NumericConstraints[Int]
+  abstract sealed class IntType extends NumericType {
+    var minValue: Option[Ast.expr] = None /*Int.MinValue*/
+    var maxValue: Option[Ast.expr] = None /*Int.MaxValue*/
+  }
   case object CalcIntType extends IntType
   case class Int1Type(signed: Boolean) extends IntType with ReadableType {
     override def apiCall(defEndian: Option[FixedEndian]): String = if (signed) "s1" else "u1"
@@ -140,7 +138,12 @@ object DataType {
     var classSpec: Option[ClassSpec] = None
     def isOpaque = {
       val cs = classSpec.get
-      cs.isTopLevel || cs.meta.isOpaque
+      val isTopLevel = cs match {
+        case cs: StructSpec => cs.isTopLevel
+        case _: InputSpec => true
+        case _ => false
+      }
+      isTopLevel || cs.meta.isOpaque
     }
 
     override def asNonOwning: UserType = {
@@ -188,6 +191,7 @@ object DataType {
   val USER_TYPE_NO_PARENT = Ast.expr.Bool(false)
 
   case object AnyType extends DataType
+  case class GlobalType(module: String = "") extends DataType
   case object KaitaiStructType extends ComplexDataType {
     def isOwning = true
     override def asNonOwning: DataType = CalcKaitaiStructType
@@ -249,6 +253,10 @@ object DataType {
       * @return True if this switch type includes an "else" case
       */
     def hasElseCase: Boolean = cases.contains(SwitchType.ELSE_CONST)
+  }
+
+  case class ConstraintMap(constraints: Map[Ast.expr, Ast.expr]) extends ComplexDataType {
+    override def isOwning: Boolean = true
   }
 
   class SwitchSpec {
@@ -342,10 +350,33 @@ object DataType {
     }
   }
 
+  class ConstraintSpec {
+    def fromYaml1(constraintMap: Map[String, Any], path: List[String]): ConstraintMap = {
+      val _constraints = ParseUtils.asMapStrStr(constraintMap, path)
+      val constraints = _constraints.map { case (attr, value) =>
+        val constPath = path ++ List(attr)
+
+        try {
+          Expressions.parse(attr) -> Expressions.parse(value)
+        } catch {
+          case epe: Expressions.ParseException =>
+            throw YAMLParseException.expression(epe, constPath)
+        }
+      }
+
+      ConstraintMap(constraints)
+    }
+  }
+
+  object ConstraintMap extends ConstraintSpec {
+    def fromYaml(constraintMap: Map[String, Any], path: List[String]): ConstraintMap = fromYaml1(constraintMap, path)
+  }
+
   private val ReIntType = """([us])(2|4|8)(le|be)?""".r
   private val ReFloatType = """f(4|8)(le|be)?""".r
   private val ReBitType = """b(\d+)""".r
   private val ReUserTypeWithArgs = """^([a-z][a-z0-9_]*)\((.*)\)$""".r
+  private val ReArrayType = """^([a-z][a-z0-9_]*)\[\]$""".r
 
   def fromYaml(
     dto: Option[String],
@@ -407,6 +438,8 @@ object DataType {
 
           val bat = arg2.getByteArrayType(path)
           StrFromBytesType(bat, enc)
+        case ReArrayType(tpe) =>
+          ArrayType(fromYaml(Some(tpe), path, metaDef, arg))
         case _ =>
           val (arglessType, args) = dt match {
             case ReUserTypeWithArgs(typeStr, argsStr) => (typeStr, Expressions.parseList(argsStr))

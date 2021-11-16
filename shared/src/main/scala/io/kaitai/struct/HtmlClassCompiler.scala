@@ -6,7 +6,7 @@ import io.kaitai.struct.exprlang.Ast
 import io.kaitai.struct.format._
 import io.kaitai.struct.languages.components.{LanguageCompiler, LanguageCompilerStatic}
 
-class HtmlClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends DocClassCompiler(classSpecs, topClass) {
+class HtmlClassCompiler(classSpecs: ProtocolSpecs, topClass: ProtocolSpec) extends DocClassCompiler(classSpecs, topClass) {
   import HtmlClassCompiler._
 
   override def outFileName(topClass: ClassSpec): String = s"${topClass.nameAsStr}.html"
@@ -75,7 +75,7 @@ class HtmlClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends Doc
     out.puts("</table>")
   }
 
-  override def compileSeqAttr(classSpec: ClassSpec, attr: AttrSpec, seqPos: Option[Int], sizeElement: Sized, sizeContainer: Sized): Unit = {
+  override def compileSeqAttr(classSpec: ClassWithSeqSpec, attr: AttrLikeSpec, seqPos: Option[Int], sizeElement: Sized, sizeContainer: Sized): Unit = {
     out.puts("<tr>")
     out.puts(s"<td>${GraphvizClassCompiler.seqPosToStr(seqPos).getOrElse("???")}</td>")
     out.puts(s"<td>...</td>")
@@ -85,7 +85,7 @@ class HtmlClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends Doc
     out.puts("</tr>")
   }
 
-  override def compileParseInstance(classSpec: ClassSpec, inst: ParseInstanceSpec): Unit = {
+  override def compileParseInstance(classSpec: StructSpec, inst: ParseInstanceSpec): Unit = {
     out.puts(s"<p><b>Parse instance</b>: ${inst.id.humanReadable}</p>")
     out.puts("<table class=\"table\">")
     out.puts("<tr>")

@@ -52,29 +52,35 @@ trait CommonReads extends LanguageCompiler {
       case _ => // no seeking required for sequence attributes
     }
 
+    attr.valid.foreach(valid => attrValidate(attr.id, attr, valid))
+
     attrParseIfFooter(attr.cond.ifExpr)
   }
 
   def attrParse0(id: Identifier, attr: AttrLikeSpec, io: String, defEndian: Option[FixedEndian]): Unit = {
+    val valid = attr match {
+      case attr: AttrSpec => attr.valid
+      case _ => None
+    }
     attr.cond.repeat match {
       case RepeatEos =>
         condRepeatEosHeader(id, io, attr.dataType, needRaw(attr.dataType))
-        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian)
+        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian, valid = valid)
         condRepeatEosFooter
       case RepeatExpr(repeatExpr: Ast.expr) =>
         condRepeatExprHeader(id, io, attr.dataType, needRaw(attr.dataType), repeatExpr)
-        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian)
+        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian, valid = valid)
         condRepeatExprFooter
       case RepeatUntil(untilExpr: Ast.expr) =>
         condRepeatUntilHeader(id, io, attr.dataType, needRaw(attr.dataType), untilExpr)
-        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian)
+        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian, valid = valid)
         condRepeatUntilFooter(id, io, attr.dataType, needRaw(attr.dataType), untilExpr)
       case NoRepeat =>
-        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian)
+        attrParse2(id, attr.dataType, io, attr.cond.repeat, false, defEndian, valid = valid)
     }
   }
 
-  def attrParse2(id: Identifier, dataType: DataType, io: String, rep: RepeatSpec, isRaw: Boolean, defEndian: Option[FixedEndian], assignType: Option[DataType] = None): Unit
+  def attrParse2(id: Identifier, dataType: DataType, io: String, rep: RepeatSpec, isRaw: Boolean, defEndian: Option[FixedEndian], assignType: Option[DataType] = None, valid: Option[ValidationSpec] = None): Unit
 
   def needRaw(dataType: DataType): Boolean = {
     dataType match {

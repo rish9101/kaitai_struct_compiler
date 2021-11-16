@@ -9,7 +9,7 @@ import io.kaitai.struct.format._
   * A collection of methods that resolves user types and enum types, i.e.
   * converts names into ClassSpec / EnumSpec references.
   */
-class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
+class ResolveTypes(specs: ProtocolSpecs, opaqueTypes: Boolean) {
   def run(): Unit = specs.forEachRec(resolveUserTypes)
 
   /**
@@ -18,23 +18,30 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
     * @param curClass class to start from, might be top-level class
     */
   def resolveUserTypes(curClass: ClassSpec): Unit = {
-    curClass.seq.foreach((attr) => resolveUserTypeForMember(curClass, attr))
-
-    curClass.instances.foreach { case (_, instSpec) =>
-      instSpec match {
-        case pis: ParseInstanceSpec =>
-          resolveUserTypeForMember(curClass, pis)
-        case _: ValueInstanceSpec =>
-          // ignore all other types of instances
-      }
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        curClass.seq.foreach((attr) => resolveUserTypeForMember(curClass, attr))
+      case _ =>
     }
-
-    curClass.params.foreach((paramDef) => resolveUserTypeForMember(curClass, paramDef))
-
-    curClass.inputs.foreach{ case(inputName, spec) =>
-      resolveUserTypes(spec)
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (_, instSpec) =>
+          instSpec match {
+            case pis: ParseInstanceSpec =>
+              resolveUserTypeForMember(curClass, pis)
+            case _: ValueInstanceSpec =>
+            // ignore all other types of instances
+          }
+        }
+        curClass.params.foreach((paramDef) => resolveUserTypeForMember(curClass, paramDef))
+      case curClass: ProtocolSpec =>
+        curClass.stateMachine.states.foreach { case (src, dst) =>
+          dst.foreach { case (dst, ut) =>
+            resolveUserType(curClass, ut, curClass.path ++ List(src, dst) ++ ut.name)
+          }
+        }
+      case _ => // Nothing else, for now
     }
-
   }
 
   def resolveUserTypeForMember(curClass: ClassSpec, attr: MemberSpec): Unit =
@@ -69,7 +76,7 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
         if (opaqueTypes) {
           // Generate special "opaque placeholder" ClassSpec
           Log.typeResolve.info(() => "    => ??? (generating opaque type)")
-          Some(ClassSpec.opaquePlaceholder(typeName))
+          Some(StructSpec.opaquePlaceholder(typeName))
         } else {
           // Opaque types are disabled => that is an error
           val err = new TypeNotFoundError(typeName.mkString("::"), curClass)
@@ -88,6 +95,8 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
     // part of it at this stage
     val firstName :: restNames = typeName
 
+
+    // TODO FIXME might need to add support for InputSpecs as well
     val resolvedHere = curClass.types.get(firstName).flatMap((nestedClass) =>
       if (restNames.isEmpty) {
         // No further names to resolve, here's our answer
@@ -101,26 +110,46 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
     resolvedHere match {
       case Some(_) => resolvedHere
       case None =>
-        // No luck resolving here, let's try upper levels, if they exist
-        curClass.upClass match {
-          case Some(upClass) =>
-            resolveUserType(upClass, typeName, path)
-          case None =>
-            // Check this class if it's top-level class
-            if (curClass.name.head == firstName) {
-              Some(curClass)
-            } else {
-              // Check if top-level specs has this name
-              // If there's None => no luck at all
-              val resolvedTop = specs.get(firstName)
-              resolvedTop match {
-                case None => None
-                case Some(classSpec) => if (restNames.isEmpty) {
-                  resolvedTop
-                } else {
-                  resolveUserType(classSpec, restNames, path)
-                }
+        val resolvedHere2 = curClass match {
+          case curClass: ProtocolSpec =>
+            curClass.inputs.get(firstName).flatMap((nestedClass) =>
+              if (restNames.isEmpty) {
+                // No further names to resolve, here's our answer
+                Some(nestedClass)
+              } else {
+                None
               }
+            )
+          case _ => None
+        }
+        resolvedHere2 match {
+          case Some(_) => resolvedHere2
+          case _ =>
+            // No luck resolving here, let's try upper levels, if they exist
+            curClass.upClass match {
+              case Some(upClass) =>
+                resolveUserType(upClass, typeName, path)
+              case None =>
+                // Check this class if it's top-level class
+                if (curClass.name.head == firstName) {
+                  curClass match {
+                    case curClass: StructSpec => Some(curClass)
+                    case _ => None
+                  }
+                } else {
+                  // Check if top-level specs has this name
+                  // If there's None => no luck at all
+                  val topLevelCandidates = specs.values.filter(ps => ps.types.contains(firstName)) // || ps.inputs.contains(firstName)
+                  val resolvedTop = topLevelCandidates.head.types.get(firstName)
+                  resolvedTop match {
+                    case Some(classSpec: StructSpec) => if (restNames.isEmpty) {
+                      Some(classSpec)
+                    } else {
+                      resolveUserType(classSpec, restNames, path)
+                    }
+                    case _ => None
+                  }
+                }
             }
         }
     }
@@ -138,31 +167,35 @@ class ResolveTypes(specs: ClassSpecs, opaqueTypes: Boolean) {
   }
 
   private def realResolveEnumSpec(curClass: ClassSpec, typeName: List[String]): Option[EnumSpec] = {
-    // First, try to do it in current class
+    curClass match {
+      case curClass: StructSpec =>
+        // First, try to do it in current class
 
-    // If we're seeking composite name, we only have to resolve the very first
-    // part of it at this stage
-    val firstName :: restNames = typeName
+        // If we're seeking composite name, we only have to resolve the very first
+        // part of it at this stage
+        val firstName :: restNames = typeName
 
-    val resolvedHere = if (restNames.isEmpty) {
-      curClass.enums.get(firstName)
-    } else {
-      curClass.types.get(firstName).flatMap((nestedClass) =>
-        resolveEnumSpec(nestedClass, restNames)
-      )
-    }
-
-    resolvedHere match {
-      case Some(_) => resolvedHere
-      case None =>
-        // No luck resolving here, let's try upper levels, if they exist
-        curClass.upClass match {
-          case Some(upClass) =>
-            resolveEnumSpec(upClass, typeName)
-          case None =>
-            // No luck at all
-            None
+        val resolvedHere = if (restNames.isEmpty) {
+          curClass.enums.get(firstName)
+        } else {
+          curClass.types.get(firstName).flatMap((nestedClass) =>
+            resolveEnumSpec(nestedClass, restNames)
+          )
         }
+
+        resolvedHere match {
+          case Some(_) => resolvedHere
+          case None =>
+            // No luck resolving here, let's try upper levels, if they exist
+            curClass.upClass match {
+              case Some(upClass: StructSpec) =>
+                resolveEnumSpec(upClass, typeName)
+              case _ =>
+                // No luck at all
+                None
+            }
+        }
+      case _ => None
     }
   }
 }

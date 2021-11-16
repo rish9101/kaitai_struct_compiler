@@ -3,7 +3,7 @@ package io.kaitai.struct.translators
 import io.kaitai.struct.datatype.DataType
 import io.kaitai.struct.datatype.DataType._
 import io.kaitai.struct.exprlang.Ast
-import io.kaitai.struct.format.Identifier
+import io.kaitai.struct.format.{Identifier, StructSpec}
 import io.kaitai.struct.languages.GoCompiler
 import io.kaitai.struct.precompile.TypeMismatchError
 import io.kaitai.struct.{ImportList, StringLanguageOutputWriter, Utils}
@@ -25,14 +25,14 @@ class GoTranslator(out: StringLanguageOutputWriter, provider: TypeProvider, impo
 
   var returnRes: Option[String] = None
 
-  override def translate(v: Ast.expr): String = resToStr(translateExpr(v))
+  override def translate(v: Ast.expr, t: Option[DataType]): String = resToStr(translateExpr(v, t))
 
   def resToStr(r: TranslatorResult): String = r match {
     case ResultString(s) => s
     case ResultLocalVar(n) => localVarName(n)
   }
 
-  def translateExpr(v: Ast.expr): TranslatorResult = {
+  def translateExpr(v: Ast.expr, t: Option[DataType] = None): TranslatorResult = {
     v match {
       case Ast.expr.IntNum(n) =>
         trIntLiteral(n)
@@ -90,7 +90,7 @@ class GoTranslator(out: StringLanguageOutputWriter, provider: TypeProvider, impo
       case Ast.expr.Name(name: Ast.identifier) =>
         trLocalName(name.name)
       case Ast.expr.List(elts) =>
-        doGuessArrayLiteral(elts)
+        doGuessArrayLiteral(elts, t)
       case call: Ast.expr.Attribute =>
         translateAttribute(call)
       case call: Ast.expr.Call =>
@@ -233,13 +233,13 @@ class GoTranslator(out: StringLanguageOutputWriter, provider: TypeProvider, impo
   override def doCast(value: Ast.expr, typeName: DataType): TranslatorResult = ???
 
   override def doArrayLiteral(t: DataType, value: Seq[Ast.expr]) =
-    ResultString(s"[]${GoCompiler.kaitaiType2NativeType(t)}{${value.map(translate).mkString(", ")}}")
+    ResultString(s"[]${GoCompiler.kaitaiType2NativeType(t)}{${value.map(translate(_)).mkString(", ")}}")
 
   override def doByteArrayLiteral(arr: Seq[Byte]): TranslatorResult =
     ResultString("[]uint8{" + arr.map(_ & 0xff).mkString(", ") + "}")
 
   override def doByteArrayNonLiteral(elts: Seq[Ast.expr]): TranslatorResult =
-    ResultString("[]uint8{" + elts.map(translate).mkString(", ") + "}")
+    ResultString("[]uint8{" + elts.map(translate(_)).mkString(", ") + "}")
 
   // Predefined methods of various types
 
@@ -308,7 +308,11 @@ class GoTranslator(out: StringLanguageOutputWriter, provider: TypeProvider, impo
            Identifier.IO =>
         (specialName(name), false)
       case _ =>
-        (Utils.upperCamelCase(name), provider.isLazy(ut.classSpec.get, name))
+        (Utils.upperCamelCase(name), ut.classSpec.get match {
+          case cs: StructSpec =>
+            provider.isLazy(cs, name)
+          case _ => false
+        })
     }
 
     if (twoOuts) {

@@ -76,7 +76,7 @@ class NimTranslator(provider: TypeProvider, importList: ImportList) extends Base
   override def doByteArrayLiteral(arr: Seq[Byte]): String =
     s"@[${arr.mkString(", ")}].mapIt(toByte(it))"
   override def doByteArrayNonLiteral(elts: Seq[expr]): String =
-    s"@[${elts.map(translate).mkString(", ")}]"
+    s"@[${elts.map(translate(_)).mkString(", ")}]"
   override def arrayFirst(a: expr): String = s"${translate(a)}[0]"
   override def arrayLast(a: expr): String = s"${translate(a)}[^1]"
   override def arrayMax(a: expr): String = s"max(${translate(a)})"

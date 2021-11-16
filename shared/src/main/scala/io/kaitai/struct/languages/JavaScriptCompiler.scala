@@ -26,7 +26,7 @@ class JavaScriptCompiler(val typeProvider: ClassTypeProvider, config: RuntimeCon
   override def indent: String = "  "
   override def outFileName(topClassName: String): String = s"${type2class(topClassName)}.js"
 
-  override def outImports(topClass: ClassSpec) = {
+  override def outImports(topClass: ClassSpec): String = {
     val impList = importList.toList
     val quotedImpList = impList.map((x) => s"'$x'")
     val defineArgs = quotedImpList.mkString(", ")
@@ -404,7 +404,7 @@ class JavaScriptCompiler(val typeProvider: ClassTypeProvider, config: RuntimeCon
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit = {
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit = {
     out.puts(s"$id._read();")
   }
 
@@ -539,7 +539,7 @@ class JavaScriptCompiler(val typeProvider: ClassTypeProvider, config: RuntimeCon
 
   def enumValue(enumName: String, label: String) = label.toUpperCase
 
-  override def debugClassSequence(seq: List[AttrSpec]) = {
+  override def debugClassSequence(seq: List[AttrLikeSpec]): Unit = {
     //val seqStr = seq.map((attr) => "\"" + idToStr(attr.id) + "\"").mkString(", ")
     //out.puts(s"SEQ_FIELDS = [$seqStr]")
   }
@@ -574,7 +574,7 @@ class JavaScriptCompiler(val typeProvider: ClassTypeProvider, config: RuntimeCon
     errName: String,
     errArgs: List[Ast.expr]
   ): Unit = {
-    val errArgsStr = errArgs.map(translator.translate).mkString(", ")
+    val errArgsStr = errArgs.map(translator.translate(_)).mkString(", ")
     out.puts(s"if (!(${translator.translate(checkExpr)})) {")
     out.inc
     out.puts(s"throw new $errName($errArgsStr);")

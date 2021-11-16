@@ -32,7 +32,7 @@ class RustCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.puts("}")
   }
 
-  override def outImports(topClass: ClassSpec) =
+  override def outImports(topClass: ClassSpec): String =
     importList.toList.map((x) => s"use $x;").mkString("", "\n", "\n")
 
   override def indent: String = "    "

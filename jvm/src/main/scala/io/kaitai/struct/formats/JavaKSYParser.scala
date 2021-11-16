@@ -3,9 +3,8 @@ package io.kaitai.struct.formats
 import java.io._
 import java.nio.charset.Charset
 import java.util.{List => JList, Map => JMap}
-
 import io.kaitai.struct.JavaMain.CLIConfig
-import io.kaitai.struct.format.{ClassSpec, ClassSpecs}
+import io.kaitai.struct.format.{StructSpec, ClassSpec, ProtocolSpecs, ProtocolSpec}
 import io.kaitai.struct.precompile.YAMLParserError
 import io.kaitai.struct.{Log, Main}
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -19,16 +18,16 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object JavaKSYParser {
-  def localFileToSpecs(yamlFilename: String, config: CLIConfig): ClassSpecs = {
+  def localFileToSpecs(yamlFilename: String, config: CLIConfig): ProtocolSpecs = {
     val firstSpec = fileNameToSpec(yamlFilename)
     val yamlDir = Option(new File(yamlFilename).getParent).getOrElse(".")
-    val specs = new JavaClassSpecs(yamlDir, config.importPaths, firstSpec)
+    val specs = new JavaProtocolSpecs(yamlDir, config.importPaths, firstSpec)
 
     Await.result(Main.importAndPrecompile(specs, config.runtime), Duration.Inf)
     specs
   }
 
-  def fileNameToSpec(yamlFilename: String): ClassSpec = {
+  def fileNameToSpec(yamlFilename: String): ProtocolSpec = {
     Log.fileOps.info(() => s"reading $yamlFilename...")
 
     // This complex string of classes is due to the fact that Java's
@@ -40,7 +39,7 @@ object JavaKSYParser {
     val br = new BufferedReader(isr)
     try {
       val scalaSrc = readerToYaml(br)
-      ClassSpec.fromYaml(scalaSrc)
+      ProtocolSpec.fromYaml(scalaSrc)
     } catch {
       case marked: MarkedYAMLException =>
         val mark = marked.getProblemMark

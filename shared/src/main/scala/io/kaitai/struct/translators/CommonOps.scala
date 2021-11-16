@@ -34,6 +34,9 @@ trait CommonOps extends AbstractTranslator {
   def doBytesCompareOp(left: Ast.expr, op: Ast.cmpop, right: Ast.expr): String =
     s"${translate(left)} ${cmpOp(op)} ${translate(right)}"
 
+  def doUnsafeCompareOp(left: Ast.expr, op: Ast.cmpop, right: Ast.expr): String =
+    s"${translate(left)} ${cmpOp(op)} ${translate(right)}"
+
   def cmpOp(op: Ast.cmpop): String = {
     op match {
       case Ast.cmpop.Lt => "<"
@@ -48,7 +51,7 @@ trait CommonOps extends AbstractTranslator {
   def doBooleanOp(op: Ast.boolop, values: Seq[Ast.expr]): String = {
     val opStr = s"${booleanOp(op)}"
     val dividerStr = s") $opStr ("
-    val valuesStr = values.map(translate).mkString("(", dividerStr, ")")
+    val valuesStr = values.map(translate(_)).mkString("(", dividerStr, ")")
 
     // Improve compatibility for statements like: ( ... && ... || ... ) ? ... : ...
     s" ($valuesStr) "

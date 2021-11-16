@@ -27,7 +27,7 @@ class CSharpCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
   override def indent: String = "    "
   override def outFileName(topClassName: String): String = s"${type2class(topClassName)}.cs"
 
-  override def outImports(topClass: ClassSpec) =
+  override def outImports(topClass: ClassSpec): String =
     importList.toList.map((x) => s"using $x;").mkString("", "\n", "\n")
 
   override def fileHeader(topClassName: String): Unit = {
@@ -59,7 +59,12 @@ class CSharpCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     out.inc
 
     // `FromFile` is generated only for parameterless types
-    if (typeProvider.nowClass.params.isEmpty) {
+    val params = typeProvider.nowClass match {
+      case curClass: StructSpec =>
+        curClass.params
+      case _ => List()
+    }
+    if (params.isEmpty) {
       out.puts(s"public static ${type2class(name)} FromFile(string fileName)")
       out.puts(s"{")
       out.inc
@@ -394,7 +399,7 @@ class CSharpCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit =
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit =
     out.puts(s"$id._read();")
 
   override def switchRequiresIfs(onType: DataType): Boolean = onType match {
@@ -573,7 +578,7 @@ class CSharpCompiler(val typeProvider: ClassTypeProvider, config: RuntimeConfig)
     errName: String,
     errArgs: List[Ast.expr]
   ): Unit = {
-    val errArgsStr = errArgs.map(translator.translate).mkString(", ")
+    val errArgsStr = errArgs.map(translator.translate(_)).mkString(", ")
     out.puts(s"if (!(${translator.translate(checkExpr)}))")
     out.puts("{")
     out.inc

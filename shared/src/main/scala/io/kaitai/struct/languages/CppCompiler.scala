@@ -31,7 +31,7 @@ class CppCompiler(
   val outSrc = new StringLanguageOutputWriter(indent)
   val outHdr = new StringLanguageOutputWriter(indent)
 
-  override def results(topClass: ClassSpec): Map[String, String] = {
+  override def results(topClass: ProtocolSpec): Map[String, String] = {
     val fn = topClass.nameAsStr
     Map(
       s"$fn.cpp" -> (outSrcHeader.result + importListToStr(importListSrc) + outSrc.result),
@@ -725,7 +725,7 @@ class CppCompiler(
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit =
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit =
     outSrc.puts(s"$id->_read();")
 
   override def switchRequiresIfs(onType: DataType): Boolean = onType match {
@@ -954,7 +954,7 @@ class CppCompiler(
     errName: String,
     errArgs: List[Ast.expr]
   ): Unit = {
-    val errArgsStr = errArgs.map(translator.translate).mkString(", ")
+    val errArgsStr = errArgs.map(translator.translate(_)).mkString(", ")
     importListSrc.add("kaitai/exceptions.h")
     outSrc.puts(s"if (!(${translator.translate(checkExpr)})) {")
     outSrc.inc

@@ -28,7 +28,7 @@ object CompileLog {
       output.values.map(_.values.map(_.hasErrors).max).max
   }
 
-  /** Compilation result of a single [[io.kaitai.struct.format.ClassSpec]] into a single target language. */
+  /** Compilation result of a single [[io.kaitai.struct.format.StructSpec]] into a single target language. */
   sealed trait SpecEntry extends Jsonable with CanHasErrors
 
   case class SpecFailure(errors: List[CompileError]) extends SpecEntry {

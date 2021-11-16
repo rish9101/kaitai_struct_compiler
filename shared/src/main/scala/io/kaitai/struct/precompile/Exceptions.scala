@@ -1,7 +1,7 @@
 package io.kaitai.struct.precompile
 
 import io.kaitai.struct.datatype.DataType
-import io.kaitai.struct.format.ClassSpec
+import io.kaitai.struct.format.{StructSpec, ClassSpec}
 
 /**
   * Unified YAML parser exception which pinpoints the row/col of the problem.

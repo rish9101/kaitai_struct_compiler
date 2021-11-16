@@ -8,8 +8,8 @@ import io.kaitai.struct.languages.GoCompiler
 import io.kaitai.struct.languages.components.ExtraAttrs
 
 class GoClassCompiler(
-  classSpecs: ClassSpecs,
-  override val topClass: ClassSpec,
+  classSpecs: ProtocolSpecs,
+  override val topClass: ProtocolSpec,
   config: RuntimeConfig
 ) extends ClassCompiler(classSpecs, topClass, config, GoCompiler) {
 
@@ -25,37 +25,65 @@ class GoClassCompiler(
     if (!curClass.doc.isEmpty)
       lang.classDoc(curClass.name, curClass.doc)
 
-    // Enums declaration defines types, so they need to go first
-    compileEnums(curClass)
+    curClass match {
+      case curClass: StructSpec =>
+        // Enums declaration defines types, so they need to go first
+        compileEnums(curClass)
+      case _ =>
+    }
 
     // Basic struct declaration
     lang.classHeader(curClass.name)
-    compileAttrDeclarations(curClass.seq ++ extraAttrs)
-    curClass.instances.foreach { case (instName, instSpec) =>
-      compileInstanceDeclaration(instName, instSpec)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileAttrDeclarations(curClass.seq ++ extraAttrs)
+      case _ =>
+    }
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (instName, instSpec) =>
+          compileInstanceDeclaration(instName, instSpec)
+        }
     }
     lang.classFooter(curClass.name)
 
     // Constructor = Read() function
     compileReadFunction(curClass)
 
-    compileInstances(curClass)
+    curClass match {
+      case curClass: StructSpec =>
+        compileInstances(curClass)
+      case _ =>
+    }
 
-    compileAttrReaders(curClass.seq ++ extraAttrs)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileAttrReaders(curClass.seq ++ extraAttrs)
+      case _ =>
+    }
 
     // Recursive types
     compileSubclasses(curClass)
   }
 
   def compileReadFunction(curClass: ClassSpec) = {
+    val params = curClass match {
+      case curClass: StructSpec =>
+        curClass.params
+      case _ => List()
+    }
     lang.classConstructorHeader(
       curClass.name,
       curClass.parentType,
       topClassName,
       curClass.meta.endian.contains(InheritedEndian),
-      curClass.params
+      params
     )
-    compileEagerRead(curClass.seq, curClass.meta.endian)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileEagerRead(curClass.seq, curClass.meta.endian)
+      case _ =>
+    }
     lang.classConstructorFooter
   }
 

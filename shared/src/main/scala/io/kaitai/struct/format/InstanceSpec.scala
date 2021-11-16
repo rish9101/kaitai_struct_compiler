@@ -27,6 +27,7 @@ case class ParseInstanceSpec(
   io: Option[Ast.expr]
 ) extends InstanceSpec(_doc) with AttrLikeSpec {
   override def isLazy = true
+  override def valid: Option[ValidationSpec] = None
 }
 
 object InstanceSpec {

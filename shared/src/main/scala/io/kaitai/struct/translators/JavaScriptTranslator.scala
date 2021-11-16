@@ -9,7 +9,7 @@ import io.kaitai.struct.languages.JavaScriptCompiler
 
 class JavaScriptTranslator(provider: TypeProvider) extends BaseTranslator(provider) {
   override def doByteArrayNonLiteral(elts: Seq[Ast.expr]): String =
-    s"new Uint8Array([${elts.map(translate).mkString(", ")}])"
+    s"new Uint8Array([${elts.map(translate(_)).mkString(", ")}])"
 
   /**
     * JavaScript rendition of common control character that would use hex form,

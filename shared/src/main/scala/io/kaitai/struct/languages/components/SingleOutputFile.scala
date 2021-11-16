@@ -1,7 +1,7 @@
 package io.kaitai.struct.languages.components
 
 import io.kaitai.struct.{ImportList, StringLanguageOutputWriter, Utils}
-import io.kaitai.struct.format.ClassSpec
+import io.kaitai.struct.format.{ClassSpec, ProtocolSpec, StructSpec}
 
 import scala.collection.mutable.ListBuffer
 
@@ -17,7 +17,7 @@ trait SingleOutputFile extends LanguageCompiler {
   val outHeader = new StringLanguageOutputWriter(indent)
   val out = new StringLanguageOutputWriter(indent)
 
-  override def results(topClass: ClassSpec) =
+  override def results(topClass: ProtocolSpec): Map[String, String] =
     Map(outFileName(topClass.nameAsStr) ->
       (outHeader.result + outImports(topClass) + out.result)
     )
@@ -28,5 +28,5 @@ trait SingleOutputFile extends LanguageCompiler {
     * Generates imports clauses in target language format
     * @return import
     */
-  def outImports(topClass: ClassSpec) = ""
+  def outImports(topClass: ClassSpec): String = ""
 }

@@ -57,34 +57,40 @@ trait SwitchOps {
     normalCaseProc: (T) => Unit,
     elseCaseProc: (T) => Unit
   ): Unit = {
-    switchStart(id, on)
 
-    // Pass 1: only normal case clauses
-    var first = true
+    if ((cases - SwitchType.ELSE_CONST).nonEmpty) {
+      switchStart(id, on)
 
-    cases.foreach { case (condition, result) =>
-      condition match {
-        case SwitchType.ELSE_CONST =>
-        // skip for now
-        case _ =>
-          if (first) {
-            switchCaseFirstStart(condition)
-            first = false
-          } else {
-            switchCaseStart(condition)
-          }
-          normalCaseProc(result)
-          switchCaseEnd()
+      // Pass 1: only normal case clauses
+      var first = true
+      cases.foreach { case (condition, result) =>
+        condition match {
+          case SwitchType.ELSE_CONST =>
+          // skip for now
+          case _ =>
+            if (first) {
+              switchCaseFirstStart(condition)
+              first = false
+            } else {
+              switchCaseStart(condition)
+            }
+            normalCaseProc(result)
+            switchCaseEnd()
+        }
+      }
+
+      // Pass 2: else clause, if it is there
+      cases.get(SwitchType.ELSE_CONST).foreach { (result) =>
+        switchElseStart()
+        elseCaseProc(result)
+        switchElseEnd()
+      }
+      switchEnd()
+    } else {
+      cases.get(SwitchType.ELSE_CONST).foreach { (result) =>
+        elseCaseProc(result)
       }
     }
 
-    // Pass 2: else clause, if it is there
-    cases.get(SwitchType.ELSE_CONST).foreach { (result) =>
-      switchElseStart()
-      elseCaseProc(result)
-      switchElseEnd()
-    }
-
-    switchEnd()
   }
 }

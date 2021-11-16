@@ -25,13 +25,21 @@ object ExtraAttrs {
     // We want only values of ParseInstances, which are AttrSpecLike.
     // ValueInstances are ignored, as they can't currently generate
     // any extra attributes (i.e. no `size`, no `process`, etc)
-    val parseInstances = curClass.instances.values.collect {
-      case inst: AttrLikeSpec => inst
+    val parseInstances = curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.values.collect {
+          case inst: AttrLikeSpec => inst
+        }
+      case _ => List()
     }
 
-    (curClass.seq ++ parseInstances).foldLeft(List[AttrSpec]())(
-      (attrs, attr) => attrs ++ ExtraAttrs.forAttr(attr, compiler)
-    )
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        (curClass.seq ++ parseInstances).foldLeft(List[AttrSpec]())(
+          (attrs, attr) => attrs ++ ExtraAttrs.forAttr(attr, compiler)
+        )
+      case _ => List()
+    }
   }
 
   def forAttr(attr: AttrLikeSpec, compiler: ExtraAttrs): Iterable[AttrSpec] =

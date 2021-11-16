@@ -3,7 +3,7 @@ package io.kaitai.struct.translators
 import io.kaitai.struct.datatype.DataType
 import io.kaitai.struct.datatype.DataType._
 import io.kaitai.struct.exprlang.Ast
-import io.kaitai.struct.format.{ClassSpec, Identifier}
+import io.kaitai.struct.format.{StructSpec, Identifier}
 import io.kaitai.struct.precompile.TypeMismatchError
 
 /**
@@ -46,7 +46,7 @@ abstract class BaseTranslator(val provider: TypeProvider)
     * @param v KS expression to translate
     * @return expression in target language as string
     */
-  def translate(v: Ast.expr): String = {
+  def translate(v: Ast.expr, t: Option[DataType]): String = {
     v match {
       case Ast.expr.IntNum(n) =>
         doIntLiteral(n)
@@ -64,7 +64,14 @@ abstract class BaseTranslator(val provider: TypeProvider)
         doEnumByLabel(enumSpec.name, label.name)
       case Ast.expr.Name(name: Ast.identifier) =>
         if (name.name == Identifier.SIZEOF) {
-          byteSizeOfClassSpec(provider.nowClass)
+          provider.nowClass match {
+            case curClass: StructSpec =>
+              byteSizeOfClassSpec(curClass)
+            case _ =>
+              throw new TypeMismatchError(s"unable to derive sizeof for type `${provider.nowClass.nameAsStr}`: not a struct")
+          }
+        } else if (name.name == Identifier.THIS) {
+          throw new RuntimeException("_this should not occur here; it should be resolved by the AttrSpec")
         } else {
           doLocalName(name.name)
         }
@@ -91,6 +98,8 @@ abstract class BaseTranslator(val provider: TypeProvider)
             doStrCompareOp(left, op, right)
           case (_: BytesType, _: BytesType) =>
             doBytesCompareOp(left, op, right)
+          case (_: ArrayType, _: ArrayType) | (_: CalcArrayType, _: ArrayType) | (_: ArrayType, _: CalcArrayType) | (_: CalcArrayType, _: CalcArrayType)=>
+            doSeqCompare(left, op, right)
           case (et1: EnumType, et2: EnumType) =>
             val et1Spec = et1.enumSpec.get
             val et2Spec = et2.enumSpec.get
@@ -99,6 +108,8 @@ abstract class BaseTranslator(val provider: TypeProvider)
             } else {
               doEnumCompareOp(left, op, right)
             }
+          case (_, AnyType) =>
+            doUnsafeCompareOp(left, op, right)
           case (ltype, rtype) =>
             throw new TypeMismatchError(s"can't compare $ltype and $rtype")
         }
@@ -112,6 +123,8 @@ abstract class BaseTranslator(val provider: TypeProvider)
             doSeqContains(left, right)
           case (_: BytesType, _, Ast.operator.Contains) =>
             doSeqContains(left, right)
+          case (_: ArrayType, _: ArrayType, Ast.operator.Add) =>
+            doSeqJoin(left, right)
           case (ltype, rtype, _) =>
             throw new TypeMismatchError(s"can't do $ltype $op $rtype")
         }
@@ -138,13 +151,15 @@ abstract class BaseTranslator(val provider: TypeProvider)
       case call: Ast.expr.Call =>
         translateCall(call)
       case Ast.expr.List(values: Seq[Ast.expr]) =>
-        doGuessArrayLiteral(values)
+        doGuessArrayLiteral(values, t)
       case ctt: Ast.expr.CastToType =>
         doCastOrArray(ctt)
       case Ast.expr.ByteSizeOfType(typeName) =>
         doByteSizeOfType(typeName)
       case Ast.expr.BitSizeOfType(typeName) =>
         doBitSizeOfType(typeName)
+      case Ast.expr.RandInt(min, max) =>
+        doRandInt(min, max)
     }
   }
 
@@ -167,7 +182,7 @@ abstract class BaseTranslator(val provider: TypeProvider)
       CommonSizeOf.getBitsSizeOfType(attrName, valType)
     )
   )
-  def byteSizeOfClassSpec(cs: ClassSpec): String =
+  def byteSizeOfClassSpec(cs: StructSpec): String =
     doIntLiteral(CommonSizeOf.getByteSizeOfClassSpec(cs))
 
   def doArrayLiteral(t: DataType, value: Seq[Ast.expr]): String = "[" + value.map((v) => translate(v)).mkString(", ") + "]"
@@ -182,10 +197,11 @@ abstract class BaseTranslator(val provider: TypeProvider)
   def doEnumByLabel(enumTypeAbs: List[String], label: String): String
   def doEnumById(enumTypeAbs: List[String], id: String): String
 
-  def doSeqContains(seq: Ast.expr, value: Ast.expr): String = {
-    // FIXME this must not be defined here, but CBA to implement it in all langs
-    s"${translate(value)} in ${translate(seq)}"
-  }
+  def doSeqContains(seq: Ast.expr, value: Ast.expr): String = ???
+  def doSeqJoin(seql: Ast.expr, seqr: Ast.expr): String = ???
+  def doSeqCompare(left: Ast.expr, op: Ast.cmpop, right: Ast.expr): String = ???
+
+  def doRandInt(min: Option[Int], max: Option[Int]): String = ???
 
   // Predefined methods of various types
   def strConcat(left: Ast.expr, right: Ast.expr): String = s"${translate(left)} + ${translate(right)}"

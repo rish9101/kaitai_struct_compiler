@@ -13,10 +13,10 @@ object JavaScriptKSYParser {
     * @param yaml first KSY file (YAML), given as JavaScript object
     * @return future of ClassSpecs object
     */
-  def yamlToSpecs(yaml: Any, importer: JavaScriptImporter, config: RuntimeConfig): Future[ClassSpecs] = {
+  def yamlToSpecs(yaml: Any, importer: JavaScriptImporter, config: RuntimeConfig): Future[ProtocolSpecs] = {
     val yamlScala = yamlJavascriptToScala(yaml)
-    val firstSpec = ClassSpec.fromYaml(yamlScala)
-    val specs = new JavaScriptClassSpecs(importer, firstSpec)
+    val firstSpec = ProtocolSpec.fromYaml(yamlScala)
+    val specs = new JavaScriptProtocolSpecs(importer, firstSpec)
     Main.importAndPrecompile(specs, config).map((_) => specs)
   }
 

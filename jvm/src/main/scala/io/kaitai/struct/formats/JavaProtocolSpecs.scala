@@ -1,9 +1,8 @@
 package io.kaitai.struct.formats
 
 import java.io.{File, FileNotFoundException, IOError}
-
 import io.kaitai.struct.Log
-import io.kaitai.struct.format.{ClassSpec, ClassSpecs}
+import io.kaitai.struct.format.{StructSpec, ClassSpec, ProtocolSpecs, ProtocolSpec}
 import io.kaitai.struct.precompile.ErrorInInput
 
 import scala.collection.mutable
@@ -13,25 +12,25 @@ import scala.concurrent.Future
 /**
   * Java implementation of ClassSpec container, doing imports from local files.
   */
-class JavaClassSpecs(relPath: String, absPaths: Seq[String], firstSpec: ClassSpec)
-  extends ClassSpecs(firstSpec) {
+class JavaProtocolSpecs(relPath: String, absPaths: Seq[String], firstSpec: ProtocolSpec)
+  extends ProtocolSpecs(firstSpec) {
 
-  private val relFiles = mutable.Map[String, ClassSpec]()
-  private val absFiles = mutable.Map[String, ClassSpec]()
+  private val relFiles = mutable.Map[String, ProtocolSpec]()
+  private val absFiles = mutable.Map[String, ProtocolSpec]()
 
-  override def importRelative(name: String, path: List[String], inFile: Option[String]): Future[Option[ClassSpec]] = Future {
+  override def importRelative(name: String, path: List[String], inFile: Option[String]): Future[Option[ProtocolSpec]] = Future {
     Log.importOps.info(() => s".. importing relative $name")
-    JavaClassSpecs.cached(path, inFile, relFiles, name, (_) =>
+    JavaProtocolSpecs.cached(path, inFile, relFiles, name, (_) =>
       JavaKSYParser.fileNameToSpec(s"$relPath/$name.ksy")
     )
   }
 
-  override def importAbsolute(name: String, path: List[String], inFile: Option[String]): Future[Option[ClassSpec]] = Future {
+  override def importAbsolute(name: String, path: List[String], inFile: Option[String]): Future[Option[ProtocolSpec]] = Future {
     Log.importOps.info(() => s".. importing absolute $name")
-    JavaClassSpecs.cached(path, inFile, absFiles, name, tryAbsolutePaths)
+    JavaProtocolSpecs.cached(path, inFile, absFiles, name, tryAbsolutePaths)
   }
 
-  def tryAbsolutePaths(name: String): ClassSpec = {
+  def tryAbsolutePaths(name: String): ProtocolSpec = {
     absPaths.foreach { (path) =>
       val fn = s"$path/$name.ksy"
       val f = new File(fn)
@@ -51,14 +50,14 @@ class JavaClassSpecs(relPath: String, absPaths: Seq[String], firstSpec: ClassSpe
   }
 }
 
-object JavaClassSpecs {
+object JavaProtocolSpecs {
   def cached(
     path: List[String],
     inFile: Option[String],
-    cacheMap: mutable.Map[String, ClassSpec],
+    cacheMap: mutable.Map[String, ProtocolSpec],
     name: String,
-    importOp: (String) => ClassSpec
-  ): Option[ClassSpec] = {
+    importOp: (String) => ProtocolSpec
+  ): Option[ProtocolSpec] = {
     // Have we loaded it previously?
     cacheMap.get(name) match {
       case Some(_) =>

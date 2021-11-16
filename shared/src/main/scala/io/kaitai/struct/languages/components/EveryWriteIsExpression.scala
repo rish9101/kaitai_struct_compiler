@@ -10,10 +10,13 @@ import io.kaitai.struct.format._
 import scala.collection.mutable.ListBuffer
 
 trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguage with EveryReadIsExpression {
-  override def attrWrite(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian]): Unit = {
+  override def attrWrite(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian], altIO: Option[String]): Unit = {
     attrParseIfHeader(id, attr.cond.ifExpr)
 
-    val io = normalIO
+    val io = altIO match {
+      case Some(io) => io
+      case _ => writeIO
+    }
 
     attr.cond.repeat match {
       case RepeatEos =>
@@ -72,7 +75,7 @@ trait EveryWriteIsExpression extends LanguageCompiler with ObjectOrientedLanguag
   def writeExprAsString(id: Identifier, rep: RepeatSpec, isRaw: Boolean): String = {
     rep match {
       case NoRepeat =>
-        s"${privateMemberName(id)}.value"
+        s"${privateMemberName(id)}"
       case _ =>
         translator.arraySubscript(
           Ast.expr.Name(Ast.identifier(idToStr(id))),

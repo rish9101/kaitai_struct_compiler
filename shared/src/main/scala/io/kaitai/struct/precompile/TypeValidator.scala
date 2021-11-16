@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
   * @param specs bundle of class specifications (used only to find external references)
   * @param topClass class to start check with
   */
-class TypeValidator(specs: ClassSpecs, topClass: ClassSpec) {
+class TypeValidator(specs: ProtocolSpecs, topClass: ClassSpec) {
   val provider = new ClassTypeProvider(specs, topClass)
   val detector = new ExpressionValidator(provider)
 
@@ -41,15 +41,23 @@ class TypeValidator(specs: ClassSpecs, topClass: ClassSpec) {
     Log.typeValid.info(() => s"validateClass(${curClass.nameAsStr})")
     provider.nowClass = curClass
 
-    curClass.seq.foreach(validateAttr)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        curClass.seq.foreach(validateAttr)
+      case _ =>
+    }
 
-    curClass.instances.foreach { case (_, inst) =>
-      inst match {
-        case pis: ParseInstanceSpec =>
-          validateParseInstance(pis)
-        case vis: ValueInstanceSpec =>
-          validateValueInstance(vis)
-      }
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (_, inst) =>
+          inst match {
+            case pis: ParseInstanceSpec =>
+              validateParseInstance(pis)
+            case vis: ValueInstanceSpec =>
+              validateValueInstance(vis)
+          }
+        }
+      case _ =>
     }
   }
 
@@ -117,8 +125,13 @@ class TypeValidator(specs: ClassSpecs, topClass: ClassSpec) {
     dataType match {
       case ut: UserType =>
         // we only validate non-opaque types, opaque are unverifiable by definition
-        if (!ut.isOpaque)
-          validateArgsVsParams(ut.args, ut.classSpec.get.params, path ++ List("type"))
+        if (!ut.isOpaque) {
+          ut.classSpec.get match {
+            case classSpec: StructSpec =>
+              validateArgsVsParams(ut.args, classSpec.params, path ++ List("type"))
+            case _ =>
+          }
+        }
       case _ =>
         // no args or params in non-user types
     }

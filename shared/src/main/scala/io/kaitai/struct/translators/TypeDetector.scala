@@ -77,6 +77,10 @@ class TypeDetector(provider: TypeProvider) {
           case (_: IntType, _: IntType, _) => CalcIntType
           case (_: NumericType, _: NumericType, _) => CalcFloatType
           case (_: StrType, _: StrType, Ast.operator.Add) => CalcStrType
+          case (ltype: ArrayType, rtype: ArrayType, Ast.operator.Add) => (ltype, rtype) match {
+            case (ArrayType(t1), ArrayType(t2)) =>
+              CalcArrayType(combineTypesAndFail(t1, t2))
+          }
           case (ltype, rtype, _) =>
             throw new TypeMismatchError(s"can't apply operator $op to $ltype and $rtype")
         }
@@ -120,6 +124,8 @@ class TypeDetector(provider: TypeProvider) {
       case Ast.expr.CastToType(_, typeName) =>
         detectCastType(typeName)
       case Ast.expr.ByteSizeOfType(_) | Ast.expr.BitSizeOfType(_) =>
+        CalcIntType
+      case Ast.expr.RandInt(_, _) =>
         CalcIntType
     }
   }
@@ -174,6 +180,9 @@ class TypeDetector(provider: TypeProvider) {
         attr.name match {
           case "first" | "last" | "min" | "max" => inType
           case "size" => CalcIntType
+          case "to_b" => inType match {
+            case _: BytesType => CalcBytesType
+          }
           case _ => throw new MethodNotFoundError(attr.name, valType)
         }
       case KaitaiStreamType =>
@@ -193,6 +202,8 @@ class TypeDetector(provider: TypeProvider) {
           case "to_i" => CalcIntType
           case _ => throw new MethodNotFoundError(attr.name, valType)
         }
+      case GlobalType("") => GlobalType(attr.name)
+      case GlobalType(m) => GlobalType(List(m, attr.name).mkString("."))
       case _ =>
         throw new MethodNotFoundError(attr.name, valType)
     }
@@ -215,6 +226,8 @@ class TypeDetector(provider: TypeProvider) {
           case (_: StrType, "substring") => CalcStrType
           case (_: StrType, "to_i") => CalcIntType
           case (_: StrType, "to_b") => CalcBytesType
+          case (_: BytesType, "to_s") => CalcStrType
+          case (_: GlobalType, _) => AnyType
           case _ =>
             throw new MethodNotFoundError(methodName.name, objType)
         }
@@ -340,6 +353,7 @@ object TypeDetector {
         case (_: IntType, _: IntType) => CalcIntType
         case (_: NumericType, _: NumericType) => CalcFloatType
         case (_: BytesType, _: BytesType) => CalcBytesType
+        case (_: StrType, _: StrType) => CalcStrType
         case (t1: UserType, t2: UserType) =>
           // Two user types can differ in reserved size and/or processing, but that doesn't matter in case of
           // type combining - we treat them the same as long as they result in same class spec or have same

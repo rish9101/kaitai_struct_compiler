@@ -106,6 +106,7 @@ object Ast {
     case class Subscript(value: expr, idx: expr) extends expr
     case class Name(id: identifier) extends expr
     case class List(elts: Seq[expr]) extends expr
+    case class RandInt(min: Option[Int], max: Option[Int]) extends expr
   }
 
   sealed trait boolop

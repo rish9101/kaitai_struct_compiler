@@ -3,7 +3,7 @@ package io.kaitai.struct.translators
 import io.kaitai.struct.datatype.DataType
 import io.kaitai.struct.datatype.DataType._
 import io.kaitai.struct.exprlang.{Ast, Expressions}
-import io.kaitai.struct.format.{ClassSpec, FixedSized}
+import io.kaitai.struct.format.{ClassSpec, FixedSized, StructSpec}
 import io.kaitai.struct.languages._
 import io.kaitai.struct.languages.components.LanguageCompilerStatic
 import io.kaitai.struct.{ImportList, RuntimeConfig, StringLanguageOutputWriter}
@@ -645,7 +645,7 @@ class TranslatorSpec extends FunSuite {
   type TestSpec = (String, TypeProvider, DataType, ResultMap)
 
   abstract class FakeTypeProvider extends TypeProvider {
-    val nowClass = ClassSpec.opaquePlaceholder(List("top_class"))
+    val nowClass = StructSpec.opaquePlaceholder(List("top_class"))
 
     override def resolveEnum(inType: Ast.typeId, enumName: String) = {
       throw new NotImplementedError
@@ -654,7 +654,7 @@ class TranslatorSpec extends FunSuite {
       if (typeName == Ast.typeId(false, List("block"), false)) {
         val name = List("top_class", "block")
         val r = CalcUserType(name, None, Seq())
-        val cs = ClassSpec.opaquePlaceholder(name)
+        val cs = StructSpec.opaquePlaceholder(name)
         cs.seqSize = FixedSized(56)
         r.classSpec = Some(cs)
         return r
@@ -665,7 +665,7 @@ class TranslatorSpec extends FunSuite {
 
     override def isLazy(attrName: String): Boolean = false
 
-    override def isLazy(inClass: ClassSpec, attrName: String): Boolean = false
+    override def isLazy(inClass: StructSpec, attrName: String): Boolean = false
   }
 
   case class Always(t: DataType) extends FakeTypeProvider {
@@ -724,7 +724,7 @@ class TranslatorSpec extends FunSuite {
   }
 
   def userType(lname: List[String]) = {
-    val cs = ClassSpec.opaquePlaceholder(lname)
+    val cs = StructSpec.opaquePlaceholder(lname)
     val ut = UserTypeInstream(lname, None)
     ut.classSpec = Some(cs)
     ut

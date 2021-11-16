@@ -6,6 +6,8 @@ import io.kaitai.struct.exprlang.Ast
 import io.kaitai.struct.format.Identifier
 import io.kaitai.struct.precompile.TypeMismatchError
 
+import io.kaitai.struct.translators.PythonTranslator
+
 abstract trait CommonMethods[T] extends TypeDetector {
   /**
     * Translates a certain attribute call (as in `foo.bar`) into a rendition
@@ -55,6 +57,9 @@ abstract trait CommonMethods[T] extends TypeDetector {
           case "size" => arraySize(value)
           case "min" => arrayMin(value)
           case "max" => arrayMax(value)
+          case "to_b" => inType match {
+            case _: BytesType => arrayOfBytesToBytes(value)
+          }
         }
       case KaitaiStreamType =>
         attr.name match {
@@ -95,6 +100,13 @@ abstract trait CommonMethods[T] extends TypeDetector {
           case (_: StrType, "to_i") => strToInt(obj, args(0))
           case (_: StrType, "to_b") => strToBytes(obj, args(0))
           case (_: BytesType, "to_s") => bytesToStr(obj, args(0))
+          case (GlobalType(moduleName), _) => {
+            this match {
+              case cls: PythonTranslator with CommonMethods[String] =>
+                cls.addCustomUserImport(moduleName, methodName.name)
+            }
+            callFunction(methodName, args)
+          }
           case _ => throw new TypeMismatchError(s"don't know how to call method '$methodName' of object type '$objType'")
         }
     }
@@ -131,10 +143,13 @@ abstract trait CommonMethods[T] extends TypeDetector {
   def arraySize(a: Ast.expr): T
   def arrayMin(a: Ast.expr): T
   def arrayMax(a: Ast.expr): T
+  def arrayOfBytesToBytes(a: Ast.expr): T = ???
 
   def enumToInt(value: Ast.expr, et: EnumType): T
 
   def boolToInt(value: Ast.expr): T
 
   def byteSizeOfValue(attrName: String, valType: DataType): T
+
+  def callFunction(funcName: Ast.identifier, args: Seq[Ast.expr]): T = ???
 }

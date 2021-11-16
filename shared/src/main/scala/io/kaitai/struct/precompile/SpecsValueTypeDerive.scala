@@ -1,9 +1,9 @@
 package io.kaitai.struct.precompile
 
 import io.kaitai.struct.Log
-import io.kaitai.struct.format.ClassSpecs
+import io.kaitai.struct.format.ProtocolSpecs
 
-class SpecsValueTypeDerive(specs: ClassSpecs) {
+class SpecsValueTypeDerive(specs: ProtocolSpecs) {
   def run(): Unit = {
     var iterNum = 1
     var hasChanged = false

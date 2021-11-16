@@ -35,7 +35,7 @@ class JavaTranslator(provider: TypeProvider, importList: ImportList, config: Run
   override def doByteArrayLiteral(arr: Seq[Byte]): String =
     s"new byte[] { ${arr.mkString(", ")} }"
   override def doByteArrayNonLiteral(elts: Seq[expr]): String =
-    s"new byte[] { ${elts.map(translate).mkString(", ")} }"
+    s"new byte[] { ${elts.map(translate(_)).mkString(", ")} }"
 
   override def numericBinOp(left: Ast.expr, op: Ast.operator, right: Ast.expr) = {
     (detectType(left), detectType(right), op) match {

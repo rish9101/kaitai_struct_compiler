@@ -11,7 +11,8 @@ import scala.collection.mutable.ListBuffer
 abstract class LanguageCompiler(
   typeProvider: ClassTypeProvider,
   val config: RuntimeConfig
-) extends SwitchOps with ValidateOps
+) extends SwitchOps
+  with ValidateOps
   with ExtraAttrs {
 
   val translator: AbstractTranslator
@@ -20,7 +21,7 @@ abstract class LanguageCompiler(
     * @return compilation results as a map: keys are file names, values are
     *         file contents.
     */
-  def results(topClass: ClassSpec): Map[String, String]
+  def results(topClass: ProtocolSpec): Map[String, String]
 
   /**
     * Declares whether language is capable of doing inner classes (i.e. classes
@@ -90,6 +91,8 @@ abstract class LanguageCompiler(
   def attributeReader(attrName: Identifier, attrType: DataType, isNullable: Boolean): Unit
   def attributeDoc(id: Identifier, doc: DocSpec): Unit = {}
 
+  def varInit(varName: NamedIdentifier, dataType: Option[DataType], varExpr: Ast.expr): Unit = ???
+
   def attrParse(attr: AttrLikeSpec, id: Identifier, defEndian: Option[Endianness]): Unit
   def attrParseHybrid(leProc: () => Unit, beProc: () => Unit): Unit
   def attrInit(attr: AttrLikeSpec): Unit = {}
@@ -97,18 +100,27 @@ abstract class LanguageCompiler(
 
   def writeHeader(endian: Option[FixedEndian]): Unit = ???
   def writeFooter(): Unit = ???
-  def attrWrite(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian]): Unit = ???
+  def attrWrite(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian], altIO: Option[String] = None): Unit = ???
   def runWriteCalc(): Unit = ???
 
-  def initHeader(): Unit = ???
-  def attrInit(attr: AttrLikeSpec, id: Identifier, defEndian: Option[FixedEndian]): Unit = ???
-  def initFooter(): Unit = ???
+  def generateHeader(endian: Option[FixedEndian]): Unit = ???
+  def attrGenerate(attr: AttrLikeSpec, attrId: Identifier, valid: Option[ValidationSpec], defEndian: Option[FixedEndian], checkExcludes: Boolean): Unit = ???
+  def generateFooter(): Unit = ???
+
+  def iterateHeader(endian: Option[FixedEndian]): Unit = ???
+  def attrTransmit(attr: InteractionSpec, attrId: Identifier, valid: Option[ValidationSpec], defEndian: Option[FixedEndian]): Unit = ???
+  def attrReceive(attr: InteractionSpec, attrId: Identifier, valid: Option[ValidationSpec], defEndian: Option[FixedEndian]): Unit = ???
+  def attrDelay(attr: InteractionSpec, attrId: Identifier, delay: Int, valid: Option[ValidationSpec], defEndian: Option[FixedEndian]): Unit = ???
+  def iterateFooter(): Unit = ???
+
+  def stateMachineHeader(endian: Option[FixedEndian]): Unit = ???
+  def stateMachineDefine(stateMachine: StateMachineSpec): Unit = ???
+  def stateMachineFooter(): Unit = ???
 
   def checkHeader(): Unit = ???
   def checkFooter(): Unit = ???
   def attrCheck(attr: AttrLikeSpec, id: Identifier): Unit = ???
 
-  def itrFields(): Unit = {}
   // TODO: delete
   def attrFixedContentsParse(attrName: Identifier, contents: Array[Byte]): Unit
 
@@ -132,6 +144,7 @@ abstract class LanguageCompiler(
   def attrProcess(proc: ProcessExpr, varSrc: Identifier, varDest: Identifier): Unit
 
   def normalIO: String
+  def writeIO: String = ???
   def useIO(ioEx: Ast.expr): String
   def pushPos(io: String): Unit
   def seek(io: String, pos: Ast.expr): Unit
@@ -156,7 +169,7 @@ abstract class LanguageCompiler(
     * declaration in reflection.
     * @param seq sequence of attributes in a class
     */
-  def debugClassSequence(seq: List[AttrSpec]) = {}
+  def debugClassSequence(seq: List[AttrLikeSpec]): Unit = {}
 
   def attrParseIfHeader(id: Identifier, ifExpr: Option[Ast.expr]): Unit = {
     ifExpr match {

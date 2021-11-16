@@ -9,30 +9,27 @@ import scala.collection.mutable
   * Type that we use when we want to refer to a class specification or something
   * close, but not (yet) that well defined.
   */
-sealed trait ClassSpecLike
-case object UnknownClassSpec extends ClassSpecLike
-case object GenericStructClassSpec extends ClassSpecLike
 
-sealed trait Sized
-case object DynamicSized extends Sized
-case object NotCalculatedSized extends Sized
-case object StartedCalculationSized extends Sized
-case class FixedSized(n: Int) extends Sized
+sealed trait ClassLikeSpec {
+  def path: List[String]
+  def meta: MetaSpec
+  def doc: DocSpec
+  def types: Map[String, StructSpec]
+  def variables: Map[NamedIdentifier, VariableSpec]
+}
 
-case class ClassSpec(
-  path: List[String],
-  isTopLevel: Boolean,
-  meta: MetaSpec,
-  doc: DocSpec,
-  params: List[ParamDefSpec],
-  seq: List[AttrSpec],
-  types: Map[String, ClassSpec],
-  instances: Map[InstanceIdentifier, InstanceSpec],
-  enums: Map[String, EnumSpec],
-  inputs: Map[String, ClassSpec],
-  interactions: Map[String, ClassSpec]
-) extends ClassSpecLike with YAMLPath {
-  var parentClass: ClassSpecLike = UnknownClassSpec
+abstract class ClassSpec extends ClassLikeSpec {
+  var parentClass: ClassSpec = UnknownSpecClass$
+  def parentType: DataType = parentClass match {
+    case UnknownSpecClass$ | GenericSpecStructClass$ => CalcKaitaiStructType
+    case t: StructSpec => CalcUserType(t.name, None)
+  }
+
+  /**
+    * The class specification that this class is nested into, if it exists.
+    * For top-level classes, it's None.
+    */
+  var upClass: Option[ClassSpec] = None
 
   /**
     * Full absolute name of the class (including all names of classes that
@@ -47,32 +44,60 @@ case class ClassSpec(
     */
   def nameAsStr = name.mkString("::")
 
-  /**
-    * The class specification that this class is nested into, if it exists.
-    * For top-level classes, it's None.
-    */
-  var upClass: Option[ClassSpec] = None
-
-  var seqSize: Sized = NotCalculatedSized
-
-  def parentType: DataType = parentClass match {
-    case UnknownClassSpec | GenericStructClassSpec => CalcKaitaiStructType
-    case t: ClassSpec => CalcUserType(t.name, None)
-  }
-
-  /**
-    * Recursively traverses tree of types starting from this type, calling
-    * certain function for every type, starting from this one.
-    */
-  def forEachRec(proc: (ClassSpec) => Unit): Unit = {
-    proc.apply(this)
+  def forEach(proc: (ClassSpec) => Unit): Unit = {
     types.foreach { case (_, typeSpec) =>
-      typeSpec.forEachRec(proc)
+      proc(typeSpec)
     }
   }
 
+  /**
+    * Recursively traverses tree of subtypes calling certain function for every type.
+    */
+  def forEachRec(proc: (ClassSpec) => Unit): Unit = {
+    proc.apply(this)
+    forEach(_.forEachRec(proc))
+  }
+
+  def markupClassNames: Unit = {
+    types.foreach { case (nestedName: String, nestedClass) =>
+      nestedClass.name = name ::: List(nestedName)
+      nestedClass.upClass = Some(this)
+      nestedClass.markupClassNames
+    }
+  }
+}
+
+abstract class ClassWithSeqSpec extends ClassSpec {
+  def seq: List[AttrLikeSpec]
+
+  var seqSize: Sized = NotCalculatedSized
+}
+
+case object UnknownSpecClass$ extends ClassSpec {
+  override def path: List[String] = List()
+  override def meta: MetaSpec = MetaSpec.OPAQUE
+  override def doc: DocSpec = DocSpec.EMPTY
+  override def types: Map[String, StructSpec] = Map()
+  override def variables: Map[NamedIdentifier, VariableSpec] = Map()
+}
+case object GenericSpecStructClass$ extends ClassSpec {
+  override def path: List[String] = List()
+  override def meta: MetaSpec = MetaSpec.OPAQUE
+  override def doc: DocSpec = DocSpec.EMPTY
+  override def types: Map[String, StructSpec] = Map()
+  override def variables: Map[NamedIdentifier, VariableSpec] = Map()
+}
+
+sealed trait Sized
+case object DynamicSized extends Sized
+case object NotCalculatedSized extends Sized
+case object StartedCalculationSized extends Sized
+case class FixedSized(n: Int) extends Sized
+
+case class StructSpec(path: List[String], meta: MetaSpec, doc: DocSpec, types: Map[String, StructSpec], params: List[ParamDefSpec], seq: List[AttrLikeSpec], isTopLevel: Boolean, instances: Map[InstanceIdentifier, InstanceSpec], enums: Map[String, EnumSpec], variables: Map[NamedIdentifier, VariableSpec])
+extends ClassWithSeqSpec with YAMLPath {
   override def equals(obj: Any): Boolean = obj match {
-    case other: ClassSpec =>
+    case other: StructSpec =>
       path == other.path &&
       isTopLevel == other.isTopLevel &&
       meta == other.meta &&
@@ -82,14 +107,28 @@ case class ClassSpec(
       types == other.types &&
       instances == other.instances &&
       enums == other.enums &&
-      inputs == other.inputs &&
-      interactions == other.interactions &&
       name == other.name
     case _ => false
   }
+
+  /**
+    * Recursively traverses tree of types starting from this type, calling
+    * certain function for every type, starting from this one.
+    */
+  override def forEachRec(proc: ClassSpec => Unit): Unit = {
+    proc.apply(this)
+    forEach(_.forEachRec(proc))
+  }
+
+  override def markupClassNames: Unit = {
+    super.markupClassNames
+    enums.foreach { case (enumName, enumSpec) =>
+      enumSpec.name = name ::: List(enumName)
+    }
+  }
 }
 
-object ClassSpec {
+object StructSpec {
   val LEGAL_KEYS = Set(
     "meta",
     "doc",
@@ -99,11 +138,10 @@ object ClassSpec {
     "types",
     "instances",
     "enums",
-    "inputs",
-    "interactions"
+    "variables"
   )
 
-  def fromYaml(src: Any, path: List[String], metaDef: MetaSpec): ClassSpec = {
+  def fromYaml(src: Any, path: List[String], metaDef: MetaSpec): StructSpec = {
     val srcMap = ParseUtils.asMapStr(src, path)
     ParseUtils.ensureLegalKeys(srcMap, LEGAL_KEYS, path)
 
@@ -121,7 +159,7 @@ object ClassSpec {
       case Some(value) => seqFromYaml(value, path ++ List("seq"), meta)
       case None => List()
     }
-    val types: Map[String, ClassSpec] = srcMap.get("types") match {
+    val types: Map[String, StructSpec] = srcMap.get("types") match {
       case Some(value) => typesFromYaml(value, path ++ List("types"), meta)
       case None => Map()
     }
@@ -133,22 +171,14 @@ object ClassSpec {
       case Some(value) => enumsFromYaml(value, path ++ List("enums"))
       case None => Map()
     }
-    val inputs: Map[String, ClassSpec] = srcMap.get("inputs") match {
-      case Some(value) => inputsFromYaml(value, path ++ List("inputs"), meta)
-      case None => Map()
-    }
-    val interactions: Map[String, ClassSpec] = srcMap.get("interactions") match {
-      case Some(value) => interactionsFromYaml(value, path ++ List("interactions"), meta)
+    val variables: Map[NamedIdentifier, VariableSpec] = srcMap.get("variables") match {
+      case Some(value) => variablesFromYaml(value, path ++ List("variables"), meta)
       case None => Map()
     }
 
     checkDupSeqInstIds(seq, instances)
 
-    val cs = ClassSpec(
-      path, path.isEmpty,
-      meta, doc,
-      params, seq, types, instances, enums, inputs, interactions
-    )
+    val cs = StructSpec(path, meta, doc, types, params, seq, path.isEmpty, instances, enums, variables)
 
     // If that's a top-level class, set its name from meta/id
     if (path.isEmpty) {
@@ -224,11 +254,11 @@ object ClassSpec {
     }
   }
 
-  def typesFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, ClassSpec] = {
+  def typesFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, StructSpec] = {
     val srcMap = ParseUtils.asMapStr(src, path)
     srcMap.map { case (typeName, body) =>
       Identifier.checkIdentifierSource(typeName, "type", path ++ List(typeName))
-      typeName -> ClassSpec.fromYaml(body, path ++ List(typeName), metaDef)
+      typeName -> StructSpec.fromYaml(body, path ++ List(typeName), metaDef)
     }
   }
 
@@ -251,38 +281,20 @@ object ClassSpec {
     }
   }
 
-  def inputsFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, ClassSpec] = {
-    val srcMap = ParseUtils.asMapStr(src, path)
-    srcMap.map { case (inputName, body) =>
-      Identifier.checkIdentifierSource(inputName, "inputs", path ++ List(inputName))
-      inputName -> ClassSpec.fromYaml(body, path ++ List(inputName), metaDef)
+  def variablesFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[NamedIdentifier, VariableSpec] = {
+    val srcMap = ParseUtils.asMap(src, path)
+    srcMap.map { case (key, body) =>
+      val varName = ParseUtils.asStr(key, path)
+      Identifier.checkIdentifierSource(varName, "variable", path ++ List(varName))
+      val id = NamedIdentifier(varName)
+      id -> VariableSpec.fromYaml(body, path ++ List(varName), metaDef, id)
     }
   }
 
-  def interactionsFromYaml(src: Any, path: List[String], metaDef: MetaSpec): Map[String, ClassSpec] = {
-    val srcMap = ParseUtils.asMapStr(src, path)
-    srcMap.map { case (interactionName, body) =>
-      Identifier.checkIdentifierSource(interactionName, "interactions", path ++ List(interactionName))
-      interactionName -> ClassSpec.fromYaml(body, path ++ List(interactionName), metaDef)
-    }
-  }
+  def fromYaml(src: Any): StructSpec = fromYaml(src, List(), MetaSpec.OPAQUE)
 
-  def fromYaml(src: Any): ClassSpec = fromYaml(src, List(), MetaSpec.OPAQUE)
-
-  def opaquePlaceholder(typeName: List[String]): ClassSpec = {
-    val placeholder = ClassSpec(
-      List(),
-      true,
-      meta = MetaSpec.OPAQUE,
-      doc = DocSpec.EMPTY,
-      params = List(),
-      seq = List(),
-      types = Map(),
-      instances = Map(),
-      enums = Map(),
-      inputs = Map(),
-      interactions = Map()
-    )
+  def opaquePlaceholder(typeName: List[String]): StructSpec = {
+    val placeholder = StructSpec(List(), meta = MetaSpec.OPAQUE, doc = DocSpec.EMPTY, types = Map(), params = List(), seq = List(), true, instances = Map(), enums = Map(), Map())
     placeholder.name = typeName
     placeholder
   }

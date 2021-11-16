@@ -7,7 +7,7 @@ import io.kaitai.struct.format._
 import io.kaitai.struct.languages.components.{LanguageCompiler, LanguageCompilerStatic}
 import io.kaitai.struct.translators.ConstructTranslator
 
-class ConstructClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends AbstractCompiler {
+class ConstructClassCompiler(classSpecs: ProtocolSpecs, topClass: ProtocolSpec) extends AbstractCompiler {
   val out = new StringLanguageOutputWriter(indent)
   val importList = new ImportList
 
@@ -35,21 +35,33 @@ class ConstructClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extend
   def compileClass(cs: ClassSpec): Unit = {
     cs.types.foreach { case (_, typeSpec) => compileClass(typeSpec) }
 
-    cs.enums.foreach { case (_, enumSpec) => compileEnum(enumSpec) }
+    cs match {
+      case cs: StructSpec =>
+        cs.enums.foreach { case (_, enumSpec) => compileEnum(enumSpec) }
+      case _ =>
+    }
 
     out.puts(s"${type2class(cs)} = Struct(")
     out.inc
 
     provider.nowClass = cs
 
-    cs.seq.foreach((seqAttr) => compileAttr(seqAttr))
-    cs.instances.foreach { case (id, instSpec) =>
-      instSpec match {
-        case vis: ValueInstanceSpec =>
-          compileValueInstance(id, vis)
-        case pis: ParseInstanceSpec =>
-          compileParseInstance(pis)
-      }
+    cs match {
+      case cs: ClassWithSeqSpec =>
+        cs.seq.foreach((seqAttr) => compileAttr(seqAttr))
+      case _ =>
+    }
+    cs match {
+      case cs: StructSpec =>
+        cs.instances.foreach { case (id, instSpec) =>
+          instSpec match {
+            case vis: ValueInstanceSpec =>
+              compileValueInstance(id, vis)
+            case pis: ParseInstanceSpec =>
+              compileParseInstance(pis)
+          }
+        }
+      case _ =>
     }
 
     out.dec

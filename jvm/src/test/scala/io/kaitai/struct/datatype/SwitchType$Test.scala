@@ -2,7 +2,7 @@ package io.kaitai.struct.datatype
 
 import io.kaitai.struct.datatype.DataType.SwitchType
 import io.kaitai.struct.exprlang.Expressions
-import io.kaitai.struct.format.ClassSpec
+import io.kaitai.struct.format.StructSpec
 import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 
@@ -22,7 +22,7 @@ class SwitchType$Test extends FunSpec {
 
     it ("combines owning user types properly") {
       val ut1 = DataType.UserTypeInstream(List("foo"), None)
-      ut1.classSpec = Some(ClassSpec.opaquePlaceholder(List("foo")))
+      ut1.classSpec = Some(StructSpec.opaquePlaceholder(List("foo")))
       val ut2 = DataType.UserTypeInstream(List("bar"), None)
 //      ut2.classSpec = Some(ClassSpec.opaquePlaceholder(List("bar")))
 

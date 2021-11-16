@@ -6,29 +6,39 @@ import io.kaitai.struct.datatype.DataType.{ArrayType, SwitchType, UserType}
 import io.kaitai.struct.format._
 import io.kaitai.struct.translators.TypeDetector
 
-class ParentTypes(classSpecs: ClassSpecs) {
+class ParentTypes(classSpecs: ProtocolSpecs) {
   def run(): Unit = {
-    classSpecs.foreach { case (_, curClass) => markup(curClass) }
+    classSpecs.forEachTopLevel { case (_, curClass) => markup(curClass) }
   }
 
   def markup(curClass: ClassSpec): Unit = {
     Log.typeProcParent.info(() => s"markupParentTypes(${curClass.nameAsStr})")
 
-    if (curClass.seq.nonEmpty)
-      Log.typeProcParent.info(() => s"... seq")
-    curClass.seq.foreach { attr =>
-      markupParentTypesAdd(curClass, attr.dataType)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        if (curClass.seq.nonEmpty)
+          Log.typeProcParent.info(() => s"... seq")
+        curClass.seq.foreach { attr =>
+          markupParentTypesAdd(curClass, attr.dataType)
+        }
+      case curClass: ProtocolSpec =>
+        curClass.types.foreach { case  (_, curClass) => markup(curClass) }
+        curClass.inputs.foreach { case  (_, curClass) => markup(curClass) }
+        return
     }
-
-    if (curClass.instances.nonEmpty)
-      Log.typeProcParent.info(() => s"... instances")
-    curClass.instances.foreach { case (_, instSpec) =>
-      instSpec match {
-        case pis: ParseInstanceSpec =>
-          markupParentTypesAdd(curClass, pis.dataTypeComposite)
-        case _: ValueInstanceSpec =>
-          // value instances have no effect on parenting, just do nothing
-      }
+    curClass match {
+      case curClass: StructSpec =>
+        if (curClass.instances.nonEmpty)
+          Log.typeProcParent.info(() => s"... instances")
+        curClass.instances.foreach { case (_, instSpec) =>
+          instSpec match {
+            case pis: ParseInstanceSpec =>
+              markupParentTypesAdd(curClass, pis.dataTypeComposite)
+            case _: ValueInstanceSpec =>
+            // value instances have no effect on parenting, just do nothing
+          }
+        }
+      case _ =>
     }
   }
 
@@ -80,19 +90,27 @@ class ParentTypes(classSpecs: ClassSpecs) {
 
   def markupParentAs(parent: ClassSpec, child: ClassSpec): Unit = {
     child.parentClass match {
-      case UnknownClassSpec =>
+      case UnknownSpecClass$ =>
         child.parentClass = parent
         markup(child)
-      case otherClass: ClassSpec =>
+      case otherClass: StructSpec =>
         if (otherClass == parent) {
           // already done, don't do anything
         } else {
           // conflicting types, would be bad for statically typed languages
           // throw new RuntimeException(s"type '${attr.dataType}' has more than 1 conflicting parent types: ${otherName} and ${curClassName}")
-          child.parentClass = GenericStructClassSpec
+          child.parentClass = GenericSpecStructClass$
         }
-      case GenericStructClassSpec =>
-        // already most generic case, do nothing
+      case otherClass: InputSpec =>
+        if (otherClass == parent) {
+          // already done, don't do anything
+        } else {
+          // conflicting types, would be bad for statically typed languages
+          // throw new RuntimeException(s"type '${attr.dataType}' has more than 1 conflicting parent types: ${otherName} and ${curClassName}")
+          child.parentClass = GenericSpecStructClass$
+        }
+      case GenericSpecStructClass$ =>
+      // already most generic case, do nothing
     }
   }
 }

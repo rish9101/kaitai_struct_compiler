@@ -75,6 +75,8 @@ object Identifier {
   }
 
   // Constants for special names used in expression language
+  val GLOBAL = "_global"
+  val THIS = "_this"
   val ROOT = "_root"
   val PARENT = "_parent"
   val IO = "_io"
@@ -84,6 +86,7 @@ object Identifier {
   val SWITCH_ON = "_on"
   val IS_LE = "_is_le"
   val SIZEOF = "_sizeof"
+  val EXCLUDES = "excludes"
 }
 
 case class RawIdentifier(innerId: Identifier) extends Identifier {
@@ -104,7 +107,9 @@ case class SpecialIdentifier(name: String) extends Identifier {
   override def humanReadable: String = name
 }
 
+object SelfIdentifier extends  SpecialIdentifier(Identifier.THIS)
 object RootIdentifier extends SpecialIdentifier(Identifier.ROOT)
 object ParentIdentifier extends SpecialIdentifier(Identifier.PARENT)
 object IoIdentifier extends SpecialIdentifier(Identifier.IO)
 object EndianIdentifier extends SpecialIdentifier(Identifier.IS_LE)
+object ExludesIdentifier extends SpecialIdentifier(Identifier.EXCLUDES)

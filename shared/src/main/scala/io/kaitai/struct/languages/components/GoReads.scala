@@ -55,7 +55,8 @@ trait GoReads extends CommonReads with ObjectOrientedLanguage with GoSwitchOps {
     rep: RepeatSpec,
     isRaw: Boolean,
     defEndian: Option[FixedEndian],
-    assignType: Option[DataType] = None
+    assignType: Option[DataType] = None,
+    valid: Option[ValidationSpec] = None
   ): Unit = {
     dataType match {
       case FixedBytesType(c, _) =>

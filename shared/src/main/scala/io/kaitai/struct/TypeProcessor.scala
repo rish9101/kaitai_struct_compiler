@@ -9,19 +9,27 @@ import scala.collection.mutable
 object TypeProcessor {
   def getOpaqueClasses(curClass: ClassSpec): Iterable[ClassSpec] = {
     val res = mutable.Set[ClassSpec]()
-    curClass.seq.map((attr) =>
-      res ++= getOpaqueDataTypes(attr.dataType)
-    )
-    curClass.instances.foreach { case (_, inst) =>
-      inst match {
-        case pis: ParseInstanceSpec =>
-          res ++= getOpaqueDataTypes(pis.dataType)
-        case _ => None
-      }
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        curClass.seq.map((attr) =>
+          res ++= getOpaqueDataTypes(attr.dataType)
+        )
+      case _ =>
+    }
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (_, inst) =>
+          inst match {
+            case pis: ParseInstanceSpec =>
+              res ++= getOpaqueDataTypes(pis.dataType)
+            case _ => None
+          }
+        }
+      case _ =>
     }
 
     // Traverse all nested types recursively
-    curClass.types.foreach { case (_, nestedType) =>
+    curClass.forEach { case nestedType =>
       res ++= getOpaqueClasses(nestedType)
     }
 

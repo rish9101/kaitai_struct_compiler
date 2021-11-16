@@ -6,8 +6,16 @@ import io.kaitai.struct.exprlang.Ast
 import io.kaitai.struct.format.Identifier
 import io.kaitai.struct.languages.{PythonCompiler, RubyCompiler}
 import io.kaitai.struct.datatype.DataType
+import io.kaitai.struct.precompile.InternalCompilerError
 
 class PythonTranslator(provider: TypeProvider, importList: ImportList) extends BaseTranslator(provider) {
+  def addCustomUserImport(moduleName: String, methodName: String) = {
+    moduleName match {
+      case "" => importList.add(s"from .user_funcs import $methodName")
+      case _ => importList.add(s"from $moduleName import $methodName")
+    }
+  }
+
   override def numericBinOp(left: Ast.expr, op: Ast.operator, right: Ast.expr) = {
     (detectType(left), detectType(right), op) match {
       case (_: IntType, _: IntType, Ast.operator.Div) =>
@@ -41,7 +49,7 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
     "b\"" + Utils.hexEscapeByteArray(arr) + "\""
   override def doByteArrayNonLiteral(elts: Seq[Ast.expr]): String = {
     importList.add("import struct")
-    s"struct.pack('${elts.length}b', ${elts.map(translate).mkString(", ")})"
+    s"struct.pack('${elts.length}b', ${elts.map(translate(_)).mkString(", ")})"
   }
 
   override def doLocalName(s: String) = {
@@ -49,7 +57,8 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
       case Identifier.ITERATOR => "_"
       case Identifier.INDEX => "i"
       case Identifier.IO => "self._io"
-      case _ => s"self.${doName(s)}.value"
+      case Identifier.EXCLUDES => Identifier.EXCLUDES
+      case _ => s"self.${doName(s)}"
     }
   }
   override def doName(s: String) = s
@@ -62,6 +71,14 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
 
   override def doSeqContains(seq: Ast.expr, value: Ast.expr): String = {
     s"${translate(value)} in ${translate(seq)}"
+  }
+
+  override def doSeqJoin(seql: Ast.expr, seqr: Ast.expr): String = {
+    s"${translate(seql)} + ${translate(seqr)}"
+  }
+
+  override def doSeqCompare(left: Ast.expr, op: Ast.cmpop, right: Ast.expr): String = {
+    s"${translate(left)} ${cmpOp(op)} ${translate(right)}"
   }
 
   override def booleanOp(op: Ast.boolop) = op match {
@@ -78,6 +95,15 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
     s"${translate(container)}[${translate(idx)}]"
   override def doIfExp(condition: Ast.expr, ifTrue: Ast.expr, ifFalse: Ast.expr): String =
     s"(${translate(ifTrue)} if ${translate(condition)} else ${translate(ifFalse)})"
+
+  override def doRandInt(min: Option[Int], max: Option[Int]): String = {
+    (min, max) match {
+      case (None, None) => "entropy.getrandbits(8)"
+      case (Some(a), Some(b)) => s"entropy.randrange($a, $b)"
+      case (None, Some(b)) => s"entropy.randrange($b)"
+      case (Some(a), None) => throw new InternalCompilerError("Ast.expr.RandInt without upper bound is invalid")
+    }
+  }
 
   // Predefined methods of various types
   override def strToInt(s: Ast.expr, base: Ast.expr): String = {
@@ -128,6 +154,8 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
     s"min(${translate(a)})"
   override def arrayMax(a: Ast.expr): String =
     s"max(${translate(a)})"
+  override def arrayOfBytesToBytes(a: Ast.expr): String =
+    s"bytes(b for s in ${translate(a)} for b in s)"
 
   override def kaitaiStreamSize(value: Ast.expr): String =
     s"${translate(value)}.size()"
@@ -136,4 +164,6 @@ class PythonTranslator(provider: TypeProvider, importList: ImportList) extends B
   override def kaitaiStreamPos(value: Ast.expr): String =
     s"${translate(value)}.pos()"
 
+  override def callFunction(funcName: Ast.identifier, args: Seq[Ast.expr]): String =
+    s"${funcName.name}(${args.map(translate(_)).mkString(", ")})"
 }

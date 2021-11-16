@@ -33,7 +33,7 @@ class RubyCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   override def outFileName(topClassName: String): String = s"$topClassName.rb"
   override def indent: String = "  "
 
-  override def outImports(topClass: ClassSpec) =
+  override def outImports(topClass: ClassSpec): String =
     importList.toList.map((x) => s"require '$x'").mkString("\n") + "\n"
 
   override def fileHeader(topClassName: String): Unit = {
@@ -376,7 +376,7 @@ class RubyCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit =
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit =
     out.puts(s"$id._read")
 
   override def switchStart(id: Identifier, on: Ast.expr): Unit =
@@ -431,7 +431,7 @@ class RubyCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   def value2Const(s: String) = s.toUpperCase
 
-  override def debugClassSequence(seq: List[AttrSpec]) = {
+  override def debugClassSequence(seq: List[AttrLikeSpec]): Unit = {
     val seqStr = seq.map((attr) => "\"" + idToStr(attr.id) + "\"").mkString(", ")
     out.puts(s"SEQ_FIELDS = [$seqStr]")
   }
@@ -461,7 +461,7 @@ class RubyCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     errName: String,
     errArgs: List[Ast.expr]
   ): Unit = {
-    val errArgsStr = errArgs.map(translator.translate).mkString(", ")
+    val errArgsStr = errArgs.map(translator.translate(_)).mkString(", ")
     out.puts(s"raise $errName.new($errArgsStr) if not ${translator.translate(checkExpr)}")
   }
 

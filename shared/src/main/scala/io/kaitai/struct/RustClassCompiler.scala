@@ -9,8 +9,8 @@ import io.kaitai.struct.languages.components.ExtraAttrs
 import scala.collection.mutable.ListBuffer
 
 class RustClassCompiler(
-  classSpecs: ClassSpecs,
-  override val topClass: ClassSpec,
+  classSpecs: ProtocolSpecs,
+  override val topClass: ProtocolSpec,
   config: RuntimeConfig
 ) extends ClassCompiler(classSpecs, topClass, config, RustCompiler) {
 
@@ -29,33 +29,58 @@ class RustClassCompiler(
 
     // Basic struct declaration
     lang.classHeader(curClass.name)
-    
-    compileAttrDeclarations(curClass.seq ++ extraAttrs)
-    curClass.instances.foreach { case (instName, instSpec) =>
-      compileInstanceDeclaration(instName, instSpec)
+
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileAttrDeclarations(curClass.seq ++ extraAttrs)
+      case _ =>
     }
-    
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (instName, instSpec) =>
+          compileInstanceDeclaration(instName, instSpec)
+        }
+      case _ =>
+    }
+
     // Constructor = Read() function
     compileReadFunction(curClass)
-    
-    compileInstances(curClass)
 
-    compileAttrReaders(curClass.seq ++ extraAttrs)
+    curClass match {
+      case curClass: StructSpec =>
+        compileInstances(curClass)
+      case _ =>
+    }
+
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileAttrReaders(curClass.seq ++ extraAttrs)
+      case _ =>
+    }
     lang.classFooter(curClass.name)
 
-    compileEnums(curClass)
+    curClass match {
+      case curClass: StructSpec =>
+        compileEnums(curClass)
+      case _ =>
+    }
 
     // Recursive types
     compileSubclasses(curClass)
   }
 
   def compileReadFunction(curClass: ClassSpec) = {
+    val params = curClass match {
+      case curClass: StructSpec =>
+        curClass.params
+      case _ => List()
+    }
     lang.classConstructorHeader(
       curClass.name,
       curClass.parentType,
       topClassName,
       curClass.meta.endian.contains(InheritedEndian),
-      curClass.params
+      params
     )
 
     // FIXME
@@ -65,12 +90,16 @@ class RustClassCompiler(
     }
     
     lang.readHeader(defEndian, false)
-    
-    compileSeqRead(curClass.seq, defEndian)
+
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        compileSeqRead(curClass.seq, defEndian)
+      case _ =>
+    }
     lang.classConstructorFooter
   }
 
-  override def compileInstances(curClass: ClassSpec) = {
+  override def compileInstances(curClass: StructSpec) = {
     lang.instanceDeclHeader(curClass.name)
     curClass.instances.foreach { case (instName, instSpec) =>
       compileInstance(curClass.name, instName, instSpec, curClass.meta.endian)

@@ -2,7 +2,8 @@ package io.kaitai.struct.translators
 
 import io.kaitai.struct.datatype.DataType
 import io.kaitai.struct.exprlang.Ast
-import io.kaitai.struct.format.Identifier
+import io.kaitai.struct.format.{Identifier, StructSpec}
+import io.kaitai.struct.precompile.TypeMismatchError
 
 /**
   * Validates expressions usage of types (in typecasting operator,
@@ -37,7 +38,12 @@ class ExpressionValidator(val provider: TypeProvider)
         // TODO: check that label belongs to that enum
       case Ast.expr.Name(name: Ast.identifier) =>
         if (name.name == Identifier.SIZEOF) {
-          CommonSizeOf.getByteSizeOfClassSpec(provider.nowClass)
+          provider.nowClass match {
+            case curClass: StructSpec =>
+              CommonSizeOf.getByteSizeOfClassSpec(curClass)
+            case _ =>
+              throw new TypeMismatchError(s"unable to derive sizeof for type `${provider.nowClass.nameAsStr}`: not a struct")
+          }
         } else {
           // local name already checked by type detection
         }
@@ -116,6 +122,7 @@ class ExpressionValidator(val provider: TypeProvider)
   override def arraySize(a: Ast.expr): Unit = validate(a)
   override def arrayMin(a: Ast.expr): Unit = validate(a)
   override def arrayMax(a: Ast.expr): Unit = validate(a)
+  override def arrayOfBytesToBytes(a: Ast.expr): Unit = validate(a)
 
   override def enumToInt(value: Ast.expr, et: DataType.EnumType): Unit = validate(value)
 

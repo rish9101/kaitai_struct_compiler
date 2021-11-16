@@ -10,7 +10,7 @@ import io.kaitai.struct.translators.RubyTranslator
 
 import scala.collection.mutable.ListBuffer
 
-class GraphvizClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends AbstractCompiler {
+class GraphvizClassCompiler(classSpecs: ProtocolSpecs, topClass: ProtocolSpec) extends AbstractCompiler {
   import GraphvizClassCompiler._
 
   val out = new StringLanguageOutputWriter(indent)
@@ -58,18 +58,26 @@ class GraphvizClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends
     out.puts("graph[style=dotted];")
     out.puts
 
-    // Sequence
-    compileSeqRead(className, curClass)
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        // Sequence
+        compileSeqRead(className, curClass)
+      case _ =>
+    }
 
-    curClass.instances.foreach { case (instName, instSpec) =>
-      instSpec match {
-        case pis: ParseInstanceSpec =>
-          tableStart(className, s"inst__${instName.name}")
-          compileParseInstance(className, instName, pis)
-          tableEnd
-        case vis: ValueInstanceSpec =>
-          tableValueInstance(className, instName.name, vis)
-      }
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach { case (instName, instSpec) =>
+          instSpec match {
+            case pis: ParseInstanceSpec =>
+              tableStart(className, s"inst__${instName.name}")
+              compileParseInstance(className, instName, pis)
+              tableEnd
+            case vis: ValueInstanceSpec =>
+              tableValueInstance(className, instName.name, vis)
+          }
+        }
+      case _ =>
     }
 
 //    curClass.enums.foreach { case(enumName, enumColl) => compileEnum(enumName, enumColl) }
@@ -84,7 +92,7 @@ class GraphvizClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends
     out.puts("}")
   }
 
-  def compileSeqRead(className: List[String], curClass: ClassSpec): Unit = {
+  def compileSeqRead(className: List[String], curClass: ClassWithSeqSpec): Unit = {
     tableStart(className, "seq")
 
     CalculateSeqSizes.forEachSeqAttr(curClass, (attr, seqPos, _, _) => {
@@ -359,33 +367,40 @@ class GraphvizClassCompiler(classSpecs: ClassSpecs, topClass: ClassSpec) extends
     s"${getGraphvizNode(className, cs, s)}:${s}_type"
 
   def getGraphvizNode(className: List[String], cs: ClassSpec, s: String): String = {
-    cs.seq.foreach { (attr) =>
-      val name = attr.id match {
-        case NamedIdentifier(attrName) =>
-          attrName
-        case NumberedIdentifier(n) =>
-          s"_${NumberedIdentifier.TEMPLATE}$n"
-      }
-      if (name == s) {
-        return s"${type2class(className)}__seq"
-      }
+    cs match {
+      case cs: ClassWithSeqSpec =>
+        cs.seq.foreach { (attr) =>
+          val name = attr.id match {
+            case NamedIdentifier(attrName) =>
+              attrName
+            case NumberedIdentifier(n) =>
+              s"_${NumberedIdentifier.TEMPLATE}$n"
+          }
+          if (name == s) {
+            return s"${type2class(className)}__seq"
+          }
+        }
+      case _ =>
     }
 
-    cs.params.foreach { (attr) =>
-      val name = attr.id match {
-        case NamedIdentifier(attrName) =>
-          attrName
-        case NumberedIdentifier(n) =>
-          s"_${NumberedIdentifier.TEMPLATE}$n"
-      }
-      if (name == s) {
-        return s"${type2class(className)}__params"
-      }
+    cs match {
+      case cs: StructSpec =>
+        cs.params.foreach { (attr) =>
+          val name = attr.id match {
+            case NamedIdentifier(attrName) =>
+              attrName
+            case NumberedIdentifier(n) =>
+              s"_${NumberedIdentifier.TEMPLATE}$n"
+          }
+          if (name == s) {
+            return s"${type2class(className)}__params"
+          }
+        }
+        cs.instances.get(InstanceIdentifier(s)).foreach((inst) =>
+          return s"${type2class(className)}__inst__$s"
+        )
+      case _ =>
     }
-
-    cs.instances.get(InstanceIdentifier(s)).foreach((inst) =>
-      return s"${type2class(className)}__inst__$s"
-    )
 
     throw new RuntimeException(s"unable to resolve node '$s' in type '${type2display(className)}'")
   }

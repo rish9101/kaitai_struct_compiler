@@ -11,7 +11,7 @@ class RubyTranslator(provider: TypeProvider) extends BaseTranslator(provider)
   override def doByteArrayLiteral(arr: Seq[Byte]): String =
     s"${super.doByteArrayLiteral(arr)}.pack('C*')"
   override def doByteArrayNonLiteral(elts: Seq[Ast.expr]): String =
-    s"[${elts.map(translate).mkString(", ")}].pack('C*')"
+    s"[${elts.map(translate(_)).mkString(", ")}].pack('C*')"
 
   // https://github.com/ruby/ruby/blob/trunk/doc/syntax/literals.rdoc#strings
   // https://github.com/ruby/ruby/blob/trunk/string.c - see "rb_str_inspect"

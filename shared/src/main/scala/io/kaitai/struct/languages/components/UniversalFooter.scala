@@ -1,7 +1,7 @@
 package io.kaitai.struct.languages.components
 
 import io.kaitai.struct.exprlang.Ast.expr
-import io.kaitai.struct.format.ClassSpec
+import io.kaitai.struct.format.StructSpec
 
 /**
   * All footers in the language look the same and can be written by the same
@@ -17,6 +17,9 @@ trait UniversalFooter extends LanguageCompiler {
   def classConstructorFooter: Unit = universalFooter
   override def readFooter: Unit = universalFooter
   override def writeFooter: Unit = universalFooter
+  override def generateFooter: Unit = universalFooter
+  override def iterateFooter(): Unit = universalFooter
+  override def stateMachineFooter(): Unit = universalFooter
   override def checkFooter: Unit = universalFooter
   def condRepeatExprFooter = universalFooter
   def condRepeatEosFooter: Unit = universalFooter

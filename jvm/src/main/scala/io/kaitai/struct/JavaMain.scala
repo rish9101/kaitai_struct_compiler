@@ -2,10 +2,9 @@ package io.kaitai.struct
 
 import java.io.{File, FileWriter}
 import java.net.URLDecoder
-
 import io.kaitai.struct.CompileLog._
 import io.kaitai.struct.JavaMain.CLIConfig
-import io.kaitai.struct.format.{ClassSpec, ClassSpecs, KSVersion, YAMLParseException}
+import io.kaitai.struct.format.{KSVersion, ProtocolSpec, ProtocolSpecs, StructSpec, YAMLParseException}
 import io.kaitai.struct.formats.JavaKSYParser
 import io.kaitai.struct.languages.CppCompiler
 import io.kaitai.struct.languages.components.LanguageCompilerStatic
@@ -258,11 +257,11 @@ class JavaMain(config: CLIConfig) {
         compileOneInput(srcFile.toString)
       } else {
         try {
-          compileOneInput(srcFile.toString)
         } catch {
           case ex: Throwable =>
             InputFailure(List(exceptionToCompileError(ex, srcFile.toString)))
         }
+        compileOneInput(srcFile.toString)
       }
       srcFile.toString -> log
     }.toMap
@@ -297,13 +296,13 @@ class JavaMain(config: CLIConfig) {
     )
   }
 
-  def compileAllLangs(specs: ClassSpecs, config: CLIConfig): Map[String, Map[String, SpecEntry]] = {
+  def compileAllLangs(specs: ProtocolSpecs, config: CLIConfig): Map[String, Map[String, SpecEntry]] = {
     config.targets.map { lang =>
       lang -> compileOneLang(specs, lang, s"${config.outDir}/$lang")
     }.toMap
   }
 
-  def compileOneLang(specs: ClassSpecs, langStr: String, outDir: String): Map[String, SpecEntry] = {
+  def compileOneLang(specs: ProtocolSpecs, langStr: String, outDir: String): Map[String, SpecEntry] = {
     Log.fileOps.info(() => s"... compiling it for $langStr... ")
 
     val (lang, fixedRuntime) = langStr match {
@@ -316,8 +315,8 @@ class JavaMain(config: CLIConfig) {
     }
 
     specs.map { case (_, classSpec) =>
-      val res = try {
-        compileSpecAndWriteToFile(specs, classSpec, lang, fixedRuntime, outDir)
+      val res = compileSpecAndWriteToFile(specs, classSpec, lang, fixedRuntime, outDir)
+      try {
       } catch {
         case ex: Throwable =>
           if (config.throwExceptions)
@@ -329,8 +328,8 @@ class JavaMain(config: CLIConfig) {
   }
 
   def compileSpecAndWriteToFile(
-    specs: ClassSpecs,
-    spec: ClassSpec,
+    specs: ProtocolSpecs,
+    spec: ProtocolSpec,
     lang: LanguageCompilerStatic,
     runtime: RuntimeConfig,
     outDir: String

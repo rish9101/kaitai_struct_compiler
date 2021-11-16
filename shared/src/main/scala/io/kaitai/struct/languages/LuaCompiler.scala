@@ -28,7 +28,7 @@ class LuaCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def indent: String = "  "
   override def outFileName(topClassName: String): String = s"$topClassName.lua"
-  override def outImports(topClass: ClassSpec) =
+  override def outImports(topClass: ClassSpec): String =
     importList.toList.mkString("", "\n", "\n")
 
   override def opaqueClassDeclaration(classSpec: ClassSpec): Unit =
@@ -355,7 +355,7 @@ class LuaCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     expr2
   }
 
-  override def userTypeDebugRead(id: String): Unit =
+  override def userTypeDebugRead(id: String, excludes: Option[List[String]] = None): Unit =
     out.puts(s"$id:_read()")
 
   override def switchStart(id: Identifier, on: Ast.expr): Unit =

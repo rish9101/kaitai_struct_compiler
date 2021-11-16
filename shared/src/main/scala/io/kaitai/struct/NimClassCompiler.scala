@@ -8,8 +8,8 @@ import io.kaitai.struct.languages.components.{LanguageCompiler, LanguageCompiler
 import io.kaitai.struct.translators.NimTranslator
 
 class NimClassCompiler(
-  classSpecs: ClassSpecs,
-  topClass: ClassSpec,
+  classSpecs: ProtocolSpecs,
+  topClass: ProtocolSpec,
   config: RuntimeConfig
 ) extends AbstractCompiler {
   import NimClassCompiler._
@@ -61,31 +61,39 @@ class NimClassCompiler(
       AttrSpec(List(), ParentIdentifier, curClass.parentType)
     )
 
-    (extraAttrs ++ curClass.seq).foreach {
-      (attr) => {
-        val i = idToStr(attr.id)
-        val t = ksToNim(attr.dataTypeComposite)
-        out.puts(s"${i}${if (attr.id == IoIdentifier) "" else "*" }: $t")
-      }
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        (extraAttrs ++ curClass.seq).foreach {
+          (attr) => {
+            val i = idToStr(attr.id)
+            val t = ksToNim(attr.dataTypeComposite)
+            out.puts(s"${i}${if (attr.id == IoIdentifier) "" else "*" }: $t")
+          }
+        }
+      case _ =>
     }
 
-    if (curClass.instances.size != 0) {
-      importList.add("options")
-      globalPragmaList.add("experimental: \"dotOperators\"")
+    curClass match {
+      case curClass: StructSpec =>
+        if (curClass.instances.size != 0) {
+          importList.add("options")
+          globalPragmaList.add("experimental: \"dotOperators\"")
+        }
+        curClass.instances.foreach {
+          case (id, spec) => {
+            val i = idToStr(id)
+            val t = ksToNim(spec.dataTypeComposite)
+            out.puts(s"${i}: proc(): $t")
+          }
+        }
+      case _ =>
     }
 
-    curClass.instances.foreach {
-      case (id, spec) => {
-        val i = idToStr(id)
-        val t = ksToNim(spec.dataTypeComposite)
-        out.puts(s"${i}: proc(): $t")
-      }
-    }
     out.dec
   }
 
   def compileSubtypes(curClass: ClassSpec): Unit = {
-    curClass.types.foreach { case (_, subClass) => compileTypes(subClass) }
+    curClass.forEach { case subClass => compileTypes(subClass) }
   }
 
   def compileProcs(curClass: ClassSpec): Unit = {
@@ -97,12 +105,16 @@ class NimClassCompiler(
     
     out.puts(s"# $t")
 
-    if (curClass.instances.size != 0) {
-      out.puts(s"template `.`*(a: $t, b: untyped): untyped =")
-      out.inc
-      out.puts("(a.`b inst`)()")
-      out.dec
-      out.puts
+    curClass match {
+      case curClass: StructSpec =>
+        if (curClass.instances.size != 0) {
+          out.puts(s"template `.`*(a: $t, b: untyped): untyped =")
+          out.inc
+          out.puts("(a.`b inst`)()")
+          out.dec
+          out.puts
+        }
+      case _ =>
     }
 
     out.puts(s"proc read*(_: typedesc[$t], io: KaitaiStream, root: $r, parent: $p): owned $t =")
@@ -114,49 +126,57 @@ class NimClassCompiler(
     out.puts("result.parent = parent")
     out.puts
     var wasUnaligned = false
-    curClass.seq.foreach {
-      (attr) => {
-        val nowUnaligned = isUnalignedBits(attr.dataType)
-        if (wasUnaligned && !nowUnaligned)
-          out.puts("alignToByte(io)")
-        val i = idToStr(attr.id)
-        val dt = attr.dataTypeComposite
-        // XXX: fix endian
-        out.puts(s"let $i = ${parse(dt, "io", None)}")
-        out.puts(s"result.$i = $i")
-        wasUnaligned = nowUnaligned
-      }
+    curClass match {
+      case curClass: ClassWithSeqSpec =>
+        curClass.seq.foreach {
+          (attr) => {
+            val nowUnaligned = isUnalignedBits(attr.dataType)
+            if (wasUnaligned && !nowUnaligned)
+              out.puts("alignToByte(io)")
+            val i = idToStr(attr.id)
+            val dt = attr.dataTypeComposite
+            // XXX: fix endian
+            out.puts(s"let $i = ${parse(dt, "io", None)}")
+            out.puts(s"result.$i = $i")
+            wasUnaligned = nowUnaligned
+          }
+        }
+      case _ =>
     }
     out.puts
 
-    curClass.instances.foreach {
-      case (id, spec) => {
-        val i = idToStr(id)
-        val r = i.dropRight(4)
-        val v = i.dropRight(4) + "Val"
-        val t = ksToNim(spec.dataTypeComposite)
-        out.puts(s"var ${v}: Option[$t]")
-        out.puts(s"let $r = proc(): $t =")
-        out.inc
-        out.puts(s"if isNone($v):")
-        out.inc
-        spec match {
-          case s: ValueInstanceSpec => {
-            s.dataType match {
-              case Some(dt) => out.puts(s"$v = some(${ksToNim(dt)}(${translator.translate(s.value)}))")
-              case None => out.puts(s"$v = some(${translator.translate(s.value)})")
-            }
+    curClass match {
+      case curClass: StructSpec =>
+        curClass.instances.foreach {
+          case (id, spec) => {
+            val i = idToStr(id)
+            val r = i.dropRight(4)
+            val v = i.dropRight(4) + "Val"
+            val t = ksToNim(spec.dataTypeComposite)
+            out.puts(s"var ${v}: Option[$t]")
+            out.puts(s"let $r = proc(): $t =")
+            out.inc
+            out.puts(s"if isNone($v):")
+            out.inc
+            spec match {
+              case s: ValueInstanceSpec => {
+                s.dataType match {
+                  case Some(dt) => out.puts(s"$v = some(${ksToNim(dt)}(${translator.translate(s.value)}))")
+                  case None => out.puts(s"$v = some(${translator.translate(s.value)})")
+                }
 
-          }
-          case s: ParseInstanceSpec => {
-            out.puts(s"$v = ${parse(s.dataType, "io", None)}")
+              }
+              case s: ParseInstanceSpec => {
+                out.puts(s"$v = ${parse(s.dataType, "io", None)}")
+              }
+            }
+            out.dec
+            out.puts(s"get($v)")
+            out.dec
+            out.puts(s"result.$i = $r")
           }
         }
-        out.dec
-        out.puts(s"get($v)")
-        out.dec
-        out.puts(s"result.$i = $r")
-      }
+      case _ =>
     }
     out.dec
     out.puts
@@ -173,7 +193,7 @@ class NimClassCompiler(
   }
 
   def compileSubtypeProcs(curClass: ClassSpec): Unit = {
-    curClass.types.foreach { case (_, subClass) => compileProcs(subClass) }
+    curClass.forEach { case subClass => compileProcs(subClass) }
   }
 
   def parse(dataType: DataType, io: String, endian: Option[FixedEndian]): String = {

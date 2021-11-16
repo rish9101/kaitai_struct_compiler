@@ -58,4 +58,5 @@ trait ObjectOrientedLanguage extends LanguageCompiler {
   def paramName(id: Identifier): String = idToStr(id)
 
   override def normalIO: String = privateMemberName(IoIdentifier)
+  override def writeIO: String = "io"
 }
