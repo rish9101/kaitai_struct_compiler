@@ -93,6 +93,9 @@ class ClassCompiler(
     // Destructor
     compileDestructor(curClass)
 
+    // Variable state checkpoints
+    compileCheckpoints(curClass)
+
     // Recursive types
     if (lang.innerClasses) {
       compileSubclasses(curClass)
@@ -244,6 +247,37 @@ class ClassCompiler(
       case _ =>
     }
     lang.classDestructorFooter
+  }
+
+  def compileCheckpoints(curClass: ClassSpec) = {
+    if (curClass.variables.nonEmpty) {
+      compileCheckpointSave(curClass)
+      compileCheckpointRestore(curClass)
+    }
+  }
+
+  def compileCheckpointSave(curClass: ClassSpec) = {
+    lang.checkpointSaveHeader()
+    curClass.variables.foreach { case (varName, varSpec) =>
+      varSpec.value match {
+        case Some(varExpr) =>
+          lang.varSave(varName, varSpec.dataType)
+        case None =>
+      }
+    }
+    lang.checkpointSaveFooter
+  }
+
+  def compileCheckpointRestore(curClass: ClassSpec) = {
+    lang.checkpointRestoreHeader()
+    curClass.variables.foreach { case (varName, varSpec) =>
+      varSpec.value match {
+        case Some(varExpr) =>
+          lang.varRestore(varName, varSpec.dataType)
+        case None =>
+      }
+    }
+    lang.checkpointRestoreFooter
   }
 
   /**
@@ -451,6 +485,18 @@ class ClassCompiler(
   def compileSeqGenerate(seq: List[AttrLikeSpec], defEndian: Option[FixedEndian]) = {
     seq.foreach { (attr) =>
       lang.attrGenerate(attr, attr.id, attr.valid, defEndian, true)
+      attr match {
+        case attr: ExportSpec =>
+          attr.exports match {
+            case Some(exports) =>
+              lang match {
+                case lang: EveryGenerateIsExpression =>
+                  lang.attrGenerateValid(attr.id, attr.dataType, lang.normalIO, NoRepeat, false, exports, defEndian)
+              }
+            case None =>
+          }
+        case _ =>
+      }
     }
   }
 

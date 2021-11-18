@@ -121,6 +121,14 @@ abstract class LanguageCompiler(
   def checkFooter(): Unit = ???
   def attrCheck(attr: AttrLikeSpec, id: Identifier): Unit = ???
 
+  def checkpointSaveHeader(): Unit = ???
+  def varSave(varName: NamedIdentifier, dataType: Option[DataType]): Unit = ???
+  def checkpointSaveFooter(): Unit = ???
+
+  def checkpointRestoreHeader(): Unit = ???
+  def varRestore(varName: NamedIdentifier, dataType: Option[DataType]): Unit = ???
+  def checkpointRestoreFooter(): Unit = ???
+
   // TODO: delete
   def attrFixedContentsParse(attrName: Identifier, contents: Array[Byte]): Unit
 

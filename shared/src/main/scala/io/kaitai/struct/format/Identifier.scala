@@ -107,6 +107,10 @@ case class SpecialIdentifier(name: String) extends Identifier {
   override def humanReadable: String = name
 }
 
+case class CheckpointIdentifier(innerId: Identifier) extends Identifier {
+  override def humanReadable: String = s"checkpoint(${innerId.humanReadable})"
+}
+
 object SelfIdentifier extends  SpecialIdentifier(Identifier.THIS)
 object RootIdentifier extends SpecialIdentifier(Identifier.ROOT)
 object ParentIdentifier extends SpecialIdentifier(Identifier.PARENT)

@@ -21,6 +21,8 @@ trait UniversalFooter extends LanguageCompiler {
   override def iterateFooter(): Unit = universalFooter
   override def stateMachineFooter(): Unit = universalFooter
   override def checkFooter: Unit = universalFooter
+  override def checkpointSaveFooter(): Unit = universalFooter
+  override def checkpointRestoreFooter(): Unit = universalFooter
   def condRepeatExprFooter = universalFooter
   def condRepeatEosFooter: Unit = universalFooter
   override def condRepeatCommonFooter: Unit = universalFooter

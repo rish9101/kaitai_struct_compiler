@@ -48,8 +48,9 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     outHeader.puts
 
     importList.add("from pkg_resources import parse_version")
-    importList.add("import kaitaistruct")
-    importList.add(s"from kaitaistruct import $kstructName, $kstreamName, ByteBufferKaitaiStream, BytesIO, SEEK_CUR, SEEK_END")
+    importList.add("from models import kaitaistruct")
+    importList.add(s"from models.kaitaistruct import $kstructName, $kstreamName, ByteBufferKaitaiStream, BytesIO, SEEK_CUR, SEEK_END")
+    importList.add("from functools import partial")
 
     out.puts
     out.puts
@@ -166,7 +167,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
   }
 
   override def iterateHeader(endian: Option[FixedEndian]): Unit = {
-    out.puts(s"def __inner_iter__(self):")
+    out.puts(s"def __inner_iter__(self, entropy):")
     out.inc
   }
 
@@ -187,6 +188,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
     attrParseIfHeader(attrId, attr.cond.ifExpr)
 
     out.puts("_rpos = self._buffer.tell()")
+    out.puts("self._root._save_checkpoint()")
     out.puts("while True:")
     out.inc
 
@@ -212,7 +214,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       }
       out.puts("except EOFError:")
       out.inc
-      out.puts("pass")
+      out.puts("self._root._restore_checkpoint()")
       out.dec
 
       out.dec
@@ -250,7 +252,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       out.puts(s"${translator.translate(Ast.expr.Str(src))}: {")
       out.inc
       dsts.foreach { case (dst, typObj) =>
-        out.puts(s"${translator.translate(Ast.expr.Str(dst))}: ${userType2class(typObj)}")
+        out.puts(s"${translator.translate(Ast.expr.Str(dst))}: partial(${userType2class(typObj)}, None, _parent=self, _root=self, _entropy=self._entropy)")
 //        out.puts(s"${translator.translate(Ast.expr.Str(dst))}: ${typObj}")
       }
       out.dec
@@ -691,6 +693,7 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
       case NumberedIdentifier(idx) => s"_${NumberedIdentifier.TEMPLATE}$idx"
       case InstanceIdentifier(name) => s"_m_$name"
       case RawIdentifier(innerId) => s"_raw_${idToStr(innerId)}"
+      case CheckpointIdentifier(innerId) => s"_save_${idToStr(innerId)}"
     }
   }
 
@@ -804,6 +807,27 @@ class PythonCompiler(typeProvider: ClassTypeProvider, config: RuntimeConfig)
 
   override def varInit(varName: NamedIdentifier, dataType: Option[DataType], varExpr: expr): Unit = {
     out.puts(s"${privateMemberName(varName)} = ${translator.translate(varExpr, dataType)}")
+  }
+
+  override def checkpointSaveHeader(): Unit = {
+    out.puts(s"def _save_checkpoint(self):")
+    out.inc
+  }
+
+  override def checkpointRestoreHeader(): Unit = {
+    out.puts(s"def _restore_checkpoint(self):")
+    out.inc
+  }
+
+  override def varSave(varName: NamedIdentifier, dataType: Option[DataType]): Unit = {
+    importList.add("from copy import copy")
+    val saveName = CheckpointIdentifier(varName)
+    out.puts(s"${privateMemberName(saveName)} = copy(${privateMemberName(varName)})")
+  }
+
+  override def varRestore(varName: NamedIdentifier, dataType: Option[DataType]): Unit = {
+    val saveName = CheckpointIdentifier(varName)
+    out.puts(s"${privateMemberName(varName)} = ${privateMemberName(saveName)}")
   }
 }
 
